@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "244628934638",
+    "firebase_url": "https://parcelhub-siswa-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "parcelhub-siswa",
+    "storage_bucket": "parcelhub-siswa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:244628934638:android:9fa34c2293d3061adf08ff",
+        "android_client_info": {
+          "package_name": "com.example.parcelhub_siswa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYdLhNgRBEQmFx589XcsVvmJAoyFhdJYs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
