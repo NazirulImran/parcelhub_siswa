@@ -4,6 +4,7 @@ import 'staff_register_parcel.dart';
 import 'staff_verify_pickup.dart'; // We will create this next
 import '../screens/auth_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../staff/staff_approve_payment.dart';
 
 class StaffDashboard extends StatelessWidget {
   const StaffDashboard({super.key});
@@ -34,17 +35,18 @@ class StaffDashboard extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Action Buttons Row
-            Row(
-              children: [
-                Expanded(child: _ActionButton(icon: Icons.dashboard, label: "Dashboard", color: Colors.blue, onTap: (){})),
-                const SizedBox(width: 8),
-                Expanded(child: _ActionButton(icon: Icons.edit, label: "Register", color: Colors.white, isOutlined: true, 
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffRegisterParcel())))),
-                const SizedBox(width: 8),
-                Expanded(child: _ActionButton(icon: Icons.qr_code_scanner, label: "Verify", color: Colors.white, isOutlined: true, 
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffVerifyPickup())))),
-              ],
-            ),
+           Row(
+            children: [
+              Expanded(child: _ActionButton(icon: Icons.edit, label: "Register", color: Colors.blue, 
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffRegisterParcel())))),
+              const SizedBox(width: 8),
+              Expanded(child: _ActionButton(icon: Icons.attach_money, label: "Approvals", color: Colors.orange, 
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffApprovePayment())))), // NEW PAGE LINK
+              const SizedBox(width: 8),
+              Expanded(child: _ActionButton(icon: Icons.qr_code_scanner, label: "Release", color: Colors.green, 
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffVerifyPickup())))),
+            ],
+          ),
             const SizedBox(height: 24),
 
             // Statistics Cards
