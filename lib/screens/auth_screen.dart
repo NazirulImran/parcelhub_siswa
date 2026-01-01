@@ -20,7 +20,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _matricController = TextEditingController();
   bool _isLoading = false;
 
-  // 1. Helper: Show Error Toast (SnackBar)
+  // 1. Helper: Show Error Toast
   void _showToast(String message) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -32,12 +32,11 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // 2. Helper: Show Success Popup (Dialog)
-  // The user MUST click "OK" to trigger the 'onOk' function (Navigation)
+  // 2. Helper: Show Success Popup
   void _showSuccessDialog(String message, VoidCallback onOk) {
     showDialog(
       context: context,
-      barrierDismissible: false, // User cannot click outside to close
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text("Success", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
         content: Text(message, style: const TextStyle(fontSize: 16)),
@@ -45,8 +44,8 @@ class _AuthScreenState extends State<AuthScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx); // Close the dialog
-              onOk(); // Run the navigation logic
+              Navigator.pop(ctx);
+              onOk();
             },
             child: const Text("OK", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           )
@@ -55,15 +54,104 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  // --- NEW: FORGOT PASSWORD LOGIC ---
+  void _showForgotPasswordDialog() {
+    final resetEmailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Forgot Password"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Enter your email. We will check if you are registered.", style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: resetEmailController,
+              decoration: const InputDecoration(labelText: "Email Address", prefixIcon: Icon(Icons.email)),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => _handlePasswordResetCheck(resetEmailController.text.trim(), ctx),
+            child: const Text("Reset Password"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handlePasswordResetCheck(String email, BuildContext dialogContext) async {
+    if (email.isEmpty) {
+      _showToast("Please enter an email address.");
+      return;
+    }
+
+    // 1. Check if email exists in Database
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        // CASE A: Email NOT found -> Show "Register First" Dialog
+        Navigator.pop(dialogContext); // Close reset dialog
+        _showNotRegisteredDialog(email);
+      } else {
+        // CASE B: Email found -> Send Reset Link
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+        Navigator.pop(dialogContext); // Close reset dialog
+        _showSuccessDialog("A password reset link has been sent to $email. Please check your inbox to update your password.", () {});
+      }
+    } catch (e) {
+      Navigator.pop(dialogContext);
+      _showToast("Error verifying email: $e");
+    }
+  }
+
+  void _showNotRegisteredDialog(String email) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Email Not Registered", style: TextStyle(color: Colors.red)),
+        content: const Text("We could not find an account with this email. Please register first."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx); // Close dialog
+              // Redirect to Register Page Logic
+              setState(() {
+                _isLogin = false; // Switch to Sign Up
+                _emailController.text = email; // Pre-fill the email they typed
+              });
+            },
+            child: const Text("Register Now"),
+          ),
+        ],
+      ),
+    );
+  }
+  // ----------------------------------
+
   Future<void> _submitAuthForm() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final name = _nameController.text.trim();
     final matric = _matricController.text.trim();
 
-    // --- 1. Validation Logic ---
-    
-    // Check Required Fields for Registration
+        // Check Required Fields for Registration
     if (!_isLogin) {
       if (name.isEmpty) {
         _showToast("Full Name is required.");
@@ -99,12 +187,10 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-
     setState(() => _isLoading = true);
     
     try {
       if (_isLogin) {
-        // --- LOGIN LOGIC ---
         UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email,
           password: password,
@@ -112,7 +198,6 @@ class _AuthScreenState extends State<AuthScreen> {
         
         if (!mounted) return;
 
-        // Fetch User Data to get Name & Role for the Greeting
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
@@ -120,17 +205,11 @@ class _AuthScreenState extends State<AuthScreen> {
         
         if (userDoc.exists) {
           String role = userDoc['role'];
-          // Try to get name, default to 'User' if missing
-          String userName = (userDoc.data() as Map<String, dynamic>).containsKey('name') 
-              ? userDoc['name'] 
-              : 'User';
+          String userName = (userDoc.data() as Map<String, dynamic>).containsKey('name') ? userDoc['name'] : 'User';
 
           if (mounted) {
-            setState(() => _isLoading = false); // Stop loading spinner
-            
-            // Show Popup: "Welcome back [Name]"
+            setState(() => _isLoading = false);
             _showSuccessDialog("Welcome back $userName!", () {
-              // Navigate only after OK is clicked
               if (role == 'Staff') {
                 Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
               } else {
@@ -140,13 +219,11 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
       } else {
-        // --- REGISTRATION LOGIC ---
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
 
-        // Save User Data
         await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
           'email': email,
           'name': name,
@@ -155,11 +232,8 @@ class _AuthScreenState extends State<AuthScreen> {
         });
 
         if (mounted) {
-          setState(() => _isLoading = false); // Stop loading spinner
-          
-          // Show Popup: "Welcome [Name] to ParcelHub Siswa!"
+          setState(() => _isLoading = false);
           _showSuccessDialog("Welcome $name to ParcelHub Siswa!", () {
-            // Navigate only after OK is clicked
             if (_role == 'Staff') {
               Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
             } else {
@@ -209,7 +283,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     const Text('University Parcel Management System', style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 24),
                     
-                    // Toggle Login/Signup
                     Row(
                       children: [
                         Expanded(
@@ -237,7 +310,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Role Selection
                     Row(
                       children: [
                         const Text('I am a: '),
@@ -256,7 +328,6 @@ class _AuthScreenState extends State<AuthScreen> {
                       ],
                     ),
 
-                    // Registration Fields (Only show if Sign Up)
                     if (!_isLogin) ...[
                       TextFormField(
                         controller: _nameController, 
@@ -281,6 +352,18 @@ class _AuthScreenState extends State<AuthScreen> {
                       decoration: const InputDecoration(labelText: 'Password (min 8 chars)'),
                       obscureText: true,
                     ),
+                    
+                    // --- NEW: FORGOT PASSWORD BUTTON (Only in Login Mode) ---
+                    if (_isLogin)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _showForgotPasswordDialog,
+                          child: const Text("Forgot Password?", style: TextStyle(color: Colors.blue)),
+                        ),
+                      ),
+                    // --------------------------------------------------------
+
                     const SizedBox(height: 24),
 
                     SizedBox(
