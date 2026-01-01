@@ -20,17 +20,77 @@ class _AuthScreenState extends State<AuthScreen> {
   final _matricController = TextEditingController();
   bool _isLoading = false;
 
+  // Helper to show "Toast" messages
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars(); // Clear existing to show new one immediately
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   // Function to handle Auth
   Future<void> _submitAuthForm() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+    final matric = _matricController.text.trim();
+
+    // --- 1. Validation Logic ---
+    
+    // Check Required Fields for Registration
+    if (!_isLogin) {
+      if (name.isEmpty) {
+        _showToast("Full Name is required.");
+        return;
+      }
+      if (matric.isEmpty) {
+        _showToast("Student/Staff ID is required.");
+        return;
+      }
+    }
+
+    // Check Email field if it is empty
+    if (email.isEmpty) {
+      _showToast("Email field is empty. Please input your email");
+      return;
+    }
+
+    // Check Email Format
+    if (!email.contains('@') || !email.contains('.')) {
+      _showToast("Invalid email format. Please check your email.");
+      return;
+    }
+
+    // Check if password field is empty
+    if (password.isEmpty) {
+      _showToast("Password field is empty. Please input your password");
+      return;
+    }
+
+    // Check Password Length (Must be > 8 characters)
+    if (password.length < 8) {
+      _showToast("Password too short. It must be at least 8 characters.");
+      return;
+    }
+
+    
+
+    // --- 2. Firebase Processing ---
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
         // Login Logic
         UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+          email: email,
+          password: password,
         );
         
+        if (!mounted) return;
+
         // Fetch role from Firestore
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -48,17 +108,19 @@ class _AuthScreenState extends State<AuthScreen> {
       } else {
         // Sign Up Logic
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+          email: email,
+          password: password,
         );
 
         // Save User Data
         await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-          'email': _emailController.text.trim(),
-          'name': _nameController.text.trim(),
-          'matric_id': _matricController.text.trim(),
+          'email': email,
+          'name': name,
+          'matric_id': matric,
           'role': _role,
         });
+
+        if (!mounted) return;
 
         if (_role == 'Staff') {
           Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
@@ -67,9 +129,21 @@ class _AuthScreenState extends State<AuthScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? 'Authentication failed')));
+      String errorMessage = 'Authentication failed';
+      if (e.code == 'email-already-in-use') {
+        errorMessage = 'This email is already registered.';
+      } else if (e.code == 'user-not-found') {
+        errorMessage = 'No user found with this email.';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Incorrect password.';
+      }
+      _showToast(errorMessage);
+    } catch (e) {
+      _showToast("An error occurred. Please try again.");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -148,16 +222,31 @@ class _AuthScreenState extends State<AuthScreen> {
                       ],
                     ),
 
+                    // Registration Fields (Only show if Sign Up)
                     if (!_isLogin) ...[
-                      TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Full Name')),
+                      TextFormField(
+                        controller: _nameController, 
+                        decoration: const InputDecoration(labelText: 'Full Name *'), // Added * to indicate required
+                      ),
                       const SizedBox(height: 12),
-                      TextFormField(controller: _matricController, decoration: const InputDecoration(labelText: 'Student/Staff ID')),
+                      TextFormField(
+                        controller: _matricController, 
+                        decoration: const InputDecoration(labelText: 'Student/Staff ID *'), // Added * to indicate required
+                      ),
                       const SizedBox(height: 12),
                     ],
                     
-                    TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email Address')),
+                    TextFormField(
+                      controller: _emailController, 
+                      decoration: const InputDecoration(labelText: 'Email Address'),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
                     const SizedBox(height: 12),
-                    TextFormField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
+                    TextFormField(
+                      controller: _passwordController, 
+                      decoration: const InputDecoration(labelText: 'Password (min 8 chars)'),
+                      obscureText: true,
+                    ),
                     const SizedBox(height: 24),
 
                     SizedBox(
