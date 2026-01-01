@@ -15,11 +15,23 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
   final _trackingController = TextEditingController();
   final _shelfController = TextEditingController();
   final _recipientController = TextEditingController();
-  bool _isManualMode = false; // Default to Scan mode
+  final _otherTypeController = TextEditingController(); // For "Others" input
+  
+  bool _isManualMode = false;
   bool _isLoading = false;
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
-  // 1. Fetch Staff Name for Greeting
+  // Dropdown Data
+  String? _selectedType;
+  final List<String> _parcelTypes = [
+    'Box',
+    'Bulky/Large Item',
+    'Documents',
+    'Soft Package',
+    'Others'
+  ];
+
+  // 1. Fetch Staff Name
   Future<String> _getStaffName() async {
     if (currentUser == null) return "Staff";
     try {
@@ -33,7 +45,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     }
   }
 
-  // 2. Barcode Scanner Logic
+  // 2. Barcode Scanner
   void _scanBarcode(bool isShelf) {
     showModalBottomSheet(
       context: context,
@@ -83,11 +95,21 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     );
   }
 
-  // 3. Save to Firebase Logic
+  // 3. Save Logic
   Future<void> _saveParcel() async {
-    if (_trackingController.text.isEmpty || _shelfController.text.isEmpty) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tracking & Shelf are required!"), backgroundColor: Colors.red));
+    if (_trackingController.text.isEmpty || _shelfController.text.isEmpty || _selectedType == null) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill in all fields!"), backgroundColor: Colors.red));
       return;
+    }
+
+    // Handle "Others" type logic
+    String finalParcelType = _selectedType!;
+    if (_selectedType == 'Others') {
+      if (_otherTypeController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please specify the type."), backgroundColor: Colors.red));
+        return;
+      }
+      finalParcelType = _otherTypeController.text.trim();
     }
 
     setState(() => _isLoading = true);
@@ -96,7 +118,8 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       await FirebaseFirestore.instance.collection('parcels').add({
         'tracking_number': _trackingController.text.trim(),
         'shelf_location': _shelfController.text.trim(),
-        'recipient_email': _recipientController.text.trim(), // Optional link to student
+        'recipient_email': _recipientController.text.trim(),
+        'parcel_type': finalParcelType, // Saving the category
         'status': 'Awaiting Payment', 
         'arrival_date': DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now()),
         'payment_method': 'Pending',
@@ -126,38 +149,30 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-             // --- SECTION 1: HEADER & GREETING ---
+             // Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 100, 24, 30),
               decoration: const BoxDecoration(
                 color: Color(0xFF6200EA),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
               ),
               child: FutureBuilder<String>(
                 future: _getStaffName(),
                 builder: (context, snapshot) {
-                  String name = snapshot.data ?? "...";
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Hi, $name", 
-                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)
-                      ),
+                      Text("Hi, ${snapshot.data ?? '...'}", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 4),
-                      const Text("Select mode to register new items.", 
-                        style: TextStyle(color: Colors.white70, fontSize: 14)
-                      ),
+                      const Text("Select mode to register new items.", style: TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
                   );
                 }
               ),
             ),
 
-             // --- SECTION 2: MAIN CONTENT CARD ---
+             // Main Card
             Transform.translate(
               offset: const Offset(0, -20),
               child: Padding(
@@ -170,7 +185,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                         // --- MODE SELECTION TOGGLE ---
+                        // Mode Toggle
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
@@ -185,10 +200,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         const Text("Parcel Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                         
-                        // --- CONDITIONAL INPUT FIELDS ---
-                        // If SCAN Mode: Fields are read-only and open scanner on tap.
-                        // If MANUAL Mode: Fields are standard text inputs.
-                        
+                        // Inputs
                         _buildAnimatedInputField(
                           controller: _trackingController, 
                           label: "Tracking Number", 
@@ -196,9 +208,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                           isManual: _isManualMode,
                           onTapScan: () => _scanBarcode(false)
                         ),
-
                         const SizedBox(height: 16),
-
                          _buildAnimatedInputField(
                           controller: _shelfController, 
                           label: "Shelf Location", 
@@ -206,14 +216,43 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                           isManual: _isManualMode,
                           onTapScan: () => _scanBarcode(true)
                         ),
+                        const SizedBox(height: 16),
+
+                        // --- NEW: Parcel Category Dropdown ---
+                        DropdownButtonFormField<String>(
+                          value: _selectedType,
+                          decoration: InputDecoration(
+                            labelText: "Parcel Type",
+                            prefixIcon: const Icon(Icons.category, color: Color(0xFF6200EA)),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                          items: _parcelTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                          onChanged: (val) => setState(() => _selectedType = val),
+                        ),
+                        
+                        // "Others" Input Field (Visible only if 'Others' selected)
+                        if (_selectedType == 'Others') ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _otherTypeController,
+                            decoration: InputDecoration(
+                              labelText: "Please specify type",
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 16),
 
-                        // Email is always manual entry
+                        // Email Link
                         TextFormField(
                           controller: _recipientController,
                           decoration: InputDecoration(
-                            labelText: "Student Email (Optional Link)",
+                            labelText: "Student Email (Optional)",
                             prefixIcon: const Icon(Icons.email, color: Colors.grey),
                             filled: true,
                             fillColor: Colors.grey.shade50,
@@ -223,7 +262,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         
                         const SizedBox(height: 24),
 
-                        // --- SUBMIT BUTTON ---
+                        // Submit
                         SizedBox(
                           width: double.infinity,
                           height: 50,
@@ -232,12 +271,11 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF6200EA),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: _isLoading ? 0 : 4,
                             ),
                             icon: _isLoading ? Container() : const Icon(Icons.check_circle, color: Colors.white),
                             label: _isLoading 
                               ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                              : const Text("Register Parcel Now", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              : const Text("Register Parcel Now", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                           ),
                         )
                       ],
@@ -252,7 +290,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     );
   }
 
-  // Helper for Mode Toggle Buttons
   Widget _buildModeToggle({required String title, required IconData icon, required bool isActive, required VoidCallback onTap}) {
     return Expanded(
       child: GestureDetector(
@@ -270,10 +307,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
             children: [
               Icon(icon, color: isActive ? const Color(0xFF6200EA) : Colors.grey, size: 20),
               const SizedBox(width: 8),
-              Text(title, style: TextStyle(
-                color: isActive ? const Color(0xFF6200EA) : Colors.grey.shade600,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal
-              )),
+              Text(title, style: TextStyle(color: isActive ? const Color(0xFF6200EA) : Colors.grey.shade600, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
             ],
           ),
         ),
@@ -281,36 +315,22 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     );
   }
 
-  // Helper for Conditional Input Fields
-  Widget _buildAnimatedInputField({
-    required TextEditingController controller, 
-    required String label, 
-    required IconData icon, 
-    required bool isManual, 
-    required VoidCallback onTapScan
-  }) {
+  Widget _buildAnimatedInputField({required TextEditingController controller, required String label, required IconData icon, required bool isManual, required VoidCallback onTapScan}) {
     return GestureDetector(
-      onTap: isManual ? null : onTapScan, // If Scan mode, tapping opens scanner
+      onTap: isManual ? null : onTapScan,
       child: AbsorbPointer(
-        absorbing: !isManual, // If Scan mode, block keyboard input
+        absorbing: !isManual,
         child: TextFormField(
           controller: controller,
           readOnly: !isManual,
           decoration: InputDecoration(
             labelText: label,
-            floatingLabelBehavior: isManual ? FloatingLabelBehavior.auto : FloatingLabelBehavior.always,
             hintText: isManual ? "Enter $label" : "Tap to scan...",
             prefixIcon: Icon(icon, color: isManual ? Colors.grey : const Color(0xFF6200EA)),
-            suffixIcon: isManual 
-                ? null // No icon in manual mode
-                : Icon(Icons.qr_code_scanner, color: const Color(0xFF6200EA)), // Scan icon in scan mode
+            suffixIcon: isManual ? null : const Icon(Icons.qr_code_scanner, color: Color(0xFF6200EA)),
             filled: true,
             fillColor: isManual ? Colors.grey.shade50 : const Color(0xFF6200EA).withOpacity(0.05),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12), 
-              borderSide: BorderSide(color: isManual ? Colors.transparent : const Color(0xFF6200EA).withOpacity(0.3))
-            ),
           ),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 
 class StaffVerifyPickup extends StatefulWidget {
   const StaffVerifyPickup({super.key});
@@ -15,17 +16,32 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   Map<String, dynamic>? _parcelData;
   String? _parcelDocId;
 
-  // Function called when QR is detected
+  // 1. Intelligent Parsing Logic
   void _onDetect(BarcodeCapture capture) async {
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isNotEmpty && _isScanning) {
-      setState(() => _isScanning = false); // Stop scanning momentarily
-      String code = barcodes.first.rawValue ?? '';
-      _fetchParcelDetails(code);
+      setState(() => _isScanning = false); 
+      
+      String rawCode = barcodes.first.rawValue ?? '';
+      String extractedTracking = rawCode;
+
+      // Check if it's the new "Rich Data" QR code
+      if (rawCode.contains("Tracking: ")) {
+        // Split by newline and look for the tracking line
+        List<String> lines = rawCode.split('\n');
+        for (String line in lines) {
+          if (line.startsWith("Tracking: ")) {
+            extractedTracking = line.replaceAll("Tracking: ", "").trim();
+            break;
+          }
+        }
+      }
+
+      // Proceed with the clean tracking number
+      _fetchParcelDetails(extractedTracking);
     }
   }
 
-  // Find parcel in Firestore
   Future<void> _fetchParcelDetails(String trackingNumber) async {
     final snapshot = await FirebaseFirestore.instance
         .collection('parcels')
@@ -40,31 +56,30 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
         _parcelData = snapshot.docs.first.data();
       });
     } else {
-      // Not found, resume scanning
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Parcel not found!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Parcel not found in database!")));
       setState(() => _isScanning = true);
     }
   }
 
-  // Mark as collected
   Future<void> _confirmCollection() async {
     if (_parcelDocId != null) {
       await FirebaseFirestore.instance.collection('parcels').doc(_parcelDocId).update({
         'status': 'Collected',
         'collected_at': DateTime.now().toString(),
       });
-      Navigator.pop(context); // Go back to dashboard
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Collection Verified!")));
+      if(!mounted) return;
+      Navigator.pop(context); 
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Collection Verified!"), backgroundColor: Colors.green));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Scan Student QR")),
+      appBar: AppBar(title: const Text("Scan Student QR"), backgroundColor: const Color(0xFF6200EA), foregroundColor: Colors.white),
       body: Column(
         children: [
-          // Top Half: Camera Scanner
+          // Camera Scanner
           Expanded(
             flex: 2,
             child: _isScanning
@@ -83,7 +98,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                   ),
           ),
           
-          // Bottom Half: Parcel Details
+          // Parcel Details
           Expanded(
             flex: 3,
             child: Container(
@@ -102,20 +117,24 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                         const SizedBox(height: 16),
                         Text("Tracking: $_scannedCode", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        Text("Shelf Location: ${_parcelData!['shelf_location']}"),
-                        Text("Payment Status: ${_parcelData!['payment_method']}"),
-                        const SizedBox(height: 24),
+                        
+                        // Added Extra Details for Staff Verification
+                        _detailRow("Type", _parcelData!['parcel_type'] ?? 'Standard'),
+                        _detailRow("Arrival", _parcelData!['arrival_date'] ?? 'N/A'),
+                        _detailRow("Shelf", _parcelData!['shelf_location']),
+                        
+                        const SizedBox(height: 16),
                         
                         // Show Receipt if Online Payment
                         if (_parcelData!['payment_method'] == 'Online' && _parcelData!['receipt_image'] != null)
                            Expanded(
                              child: GestureDetector(
                                onTap: () {
-                                 // Show full screen receipt
+                                 // Optionally show full image
                                },
                                child: Container(
                                  decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
-                                 child: const Center(child: Text("Tap to view Receipt Image")),
+                                 child: Image.memory(base64Decode(_parcelData!['receipt_image']), fit: BoxFit.cover),
                                ),
                              ),
                            ),
@@ -123,7 +142,8 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                         if (_parcelData!['payment_method'] == 'Cash')
                            Container(
                              padding: const EdgeInsets.all(12),
-                             color: Colors.orange.shade100,
+                             margin: const EdgeInsets.only(top: 10),
+                             decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(8)),
                              child: const Row(
                                children: [
                                  Icon(Icons.warning, color: Colors.orange),
@@ -139,13 +159,25 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                           child: ElevatedButton(
                             onPressed: _confirmCollection,
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                            child: const Text("Confirm & Release Parcel"),
+                            child: const Text("Confirm & Release Parcel", style: TextStyle(color: Colors.white)),
                           ),
                         )
                       ],
                     ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Text("$label: ", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          Text(value),
         ],
       ),
     );

@@ -23,7 +23,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   bool _isSearching = false;
   String _statusMessage = "";
 
-  // 1. Fetch User Name
   Future<String> _getUserName() async {
     if (currentUser == null) return "Student";
     try {
@@ -34,7 +33,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     }
   }
 
-  // 2. Search Logic
   Future<void> _searchParcel() async {
     if (_searchController.text.trim().isEmpty) return;
     FocusScope.of(context).unfocus();
@@ -72,6 +70,58 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     }
   }
 
+  void _showPaymentChoiceModal(BuildContext context, String docId, String tracking) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Select Payment Method", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.qr_code_2, color: Colors.purple),
+              ),
+              title: const Text("Pay Online (DuitNow)"),
+              subtitle: const Text("Instant verification via Receipt"),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.pop(ctx);
+                _navigateToPaymentPage(context, docId, tracking);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.money, color: Colors.green),
+              ),
+              title: const Text("Pay Cash at Counter"),
+              subtitle: const Text("Pay when you collect"),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('parcels').doc(docId).update({
+                  'status': 'Ready for Pickup',
+                  'payment_method': 'Cash',
+                  'student_id': currentUser?.uid,
+                });
+                _searchParcel();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,7 +143,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header & Search (Same as before)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 30),
@@ -137,8 +186,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 ),
               ),
             ),
-
-            // Parcel Card Area
             Padding(
               padding: const EdgeInsets.all(24),
               child: _isSearching
@@ -189,14 +236,15 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 _detailRow("Tracking No", data['tracking_number']),
                 const Divider(height: 24),
                 _detailRow("Shelf Location", data['shelf_location']),
+                const Divider(height: 24),
+                _detailRow("Type", data['parcel_type'] ?? 'Standard'),
                 const SizedBox(height: 20),
                 
-                // Logic for Buttons
                 if (status == 'Awaiting Payment')
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => _showPaymentChoiceModal(context, docId, data['tracking_number']), // <--- This is the key change!
+                      onPressed: () => _showPaymentChoiceModal(context, docId, data['tracking_number']),
                       icon: const Icon(Icons.payment),
                       label: const Text("Pay Now (RM 5.00)"),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -210,7 +258,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => _navigateToPickupQRPage(context, data['tracking_number'], data['shelf_location']),
+                      onPressed: () => _navigateToPickupQRPage(
+                        context, 
+                        data['tracking_number'], 
+                        data['shelf_location'],
+                        data['arrival_date'] ?? 'N/A',
+                        data['parcel_type'] ?? 'Standard'
+                      ),
                       icon: const Icon(Icons.qr_code),
                       label: const Text("View Pickup Ticket"),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
@@ -224,82 +278,25 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     );
   }
 
-  void _showPaymentChoiceModal(BuildContext context, String docId, String tracking) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Select Payment Method", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            
-            // OPTION 1: ONLINE
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.qr_code_2, color: Colors.purple),
-              ),
-              title: const Text("Pay Online (DuitNow)"),
-              subtitle: const Text("Instant verification via Receipt"),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.pop(ctx); // Close modal
-                _navigateToPaymentPage(context, docId, tracking); // Go to DuitNow Page
-              },
-            ),
-            const Divider(),
-            
-            // OPTION 2: CASH
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.money, color: Colors.green),
-              ),
-              title: const Text("Pay Cash at Counter"),
-              subtitle: const Text("Pay when you collect"),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () async {
-                Navigator.pop(ctx); // Close modal
-                
-                // Update to Ready for Pickup immediately
-                await FirebaseFirestore.instance.collection('parcels').doc(docId).update({
-                  'status': 'Ready for Pickup',
-                  'payment_method': 'Cash',
-                  'student_id': currentUser?.uid,
-                });
-                
-                // Refresh to show the 'View Pickup Ticket' button
-                _searchParcel();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _detailRow(String title, String value) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(color: Colors.grey)), Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))]);
   }
 
-  // --- FULL PAGE: PAYMENT SCREEN ---
   void _navigateToPaymentPage(BuildContext context, String docId, String tracking) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentPage(docId: docId, tracking: tracking)));
   }
 
-  // --- FULL PAGE: PICKUP QR SCREEN ---
-  void _navigateToPickupQRPage(BuildContext context, String tracking, String shelf) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => PickupQRPage(tracking: tracking, shelf: shelf)));
+  void _navigateToPickupQRPage(BuildContext context, String tracking, String shelf, String arrival, String type) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => PickupQRPage(
+      tracking: tracking, 
+      shelf: shelf,
+      arrival: arrival,
+      type: type,
+    )));
   }
 }
 
-// --- NEW CLASS: FULL SCREEN PAYMENT PAGE ---
+// ... PaymentPage Class remains the same ...
 class PaymentPage extends StatefulWidget {
   final String docId;
   final String tracking;
@@ -322,7 +319,6 @@ class _PaymentPageState extends State<PaymentPage> {
       List<int> bytes = await file.readAsBytes();
       String base64Image = base64Encode(bytes);
 
-      // Update status to 'Pending Verification'
       await FirebaseFirestore.instance.collection('parcels').doc(widget.docId).update({
         'status': 'Pending Verification',
         'payment_method': 'Online',
@@ -331,7 +327,7 @@ class _PaymentPageState extends State<PaymentPage> {
       });
 
       if (!mounted) return;
-      Navigator.pop(context); // Go back home
+      Navigator.pop(context); 
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Receipt Uploaded! Waiting for approval.")));
     }
   }
@@ -345,21 +341,13 @@ class _PaymentPageState extends State<PaymentPage> {
         child: Column(
           children: [
             const Text("Scan DuitNow QR", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            const Text("Amount to pay: RM 5.00", style: TextStyle(fontSize: 18, color: Colors.blue)),
             const SizedBox(height: 30),
-            
-            // Hardcoded QR Image (Replace with your own asset if you have one)
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 2)),
-              child: QrImageView(data: "00020101021226580014ID.LINK.BNM.QR01100000000000...", size: 280), // Fake DuitNow Data
+              child: QrImageView(data: "00020101021226580014ID.LINK.BNM.QR01100000000000...", size: 280),
             ),
-            
             const SizedBox(height: 40),
-            const Text("After paying, upload your receipt here:", style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 10),
-            
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -377,38 +365,72 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 }
 
-// --- NEW CLASS: FULL SCREEN PICKUP QR PAGE ---
+// --- UPDATED QR PAGE: ENCODES DATA ---
 class PickupQRPage extends StatelessWidget {
   final String tracking;
   final String shelf;
-  const PickupQRPage({super.key, required this.tracking, required this.shelf});
+  final String arrival;
+  final String type;
+
+  const PickupQRPage({
+    super.key, 
+    required this.tracking, 
+    required this.shelf,
+    required this.arrival,
+    required this.type,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // 1. Combine all data into a single string for the QR Code
+    final String qrPayload = "Tracking: $tracking\nShelf: $shelf\nType: $type\nArrival: $arrival";
+
     return Scaffold(
       backgroundColor: const Color(0xFF6200EA),
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, iconTheme: const IconThemeData(color: Colors.white)),
       body: Center(
-        child: Container(
-          margin: const EdgeInsets.all(24),
-          padding: const EdgeInsets.all(30),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Collection Ticket", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Text("Shelf: $shelf", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.purple)),
-              const Divider(height: 40),
-              QrImageView(data: tracking, size: 250),
-              const SizedBox(height: 20),
-              Text(tracking, style: const TextStyle(fontSize: 18, letterSpacing: 2)),
-              const SizedBox(height: 10),
-              const Text("Show this to the counter staff", style: TextStyle(color: Colors.grey)),
-            ],
+        child: SingleChildScrollView(
+          child: Container(
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Collection Ticket", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Text("Shelf: $shelf", style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.purple)),
+                const Divider(height: 40),
+                
+                // 2. Use the 'qrPayload' string here
+                QrImageView(data: qrPayload, size: 220),
+                
+                const SizedBox(height: 20),
+                
+                // Detailed Information displayed below
+                _infoRow("Tracking No", tracking),
+                const SizedBox(height: 8),
+                _infoRow("Category", type),
+                const SizedBox(height: 8),
+                _infoRow("Arrival Time", arrival),
+                
+                const SizedBox(height: 30),
+                const Text("Show this to the counter staff", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
     );
   }
 }
