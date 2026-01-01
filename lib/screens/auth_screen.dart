@@ -20,19 +20,41 @@ class _AuthScreenState extends State<AuthScreen> {
   final _matricController = TextEditingController();
   bool _isLoading = false;
 
-  // Helper to show "Toast" messages
+  // 1. Helper: Show Error Toast (SnackBar)
   void _showToast(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars(); // Clear existing to show new one immediately
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.redAccent,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  // Function to handle Auth
+  // 2. Helper: Show Success Popup (Dialog)
+  // The user MUST click "OK" to trigger the 'onOk' function (Navigation)
+  void _showSuccessDialog(String message, VoidCallback onOk) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // User cannot click outside to close
+      builder: (ctx) => AlertDialog(
+        title: const Text("Success", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+        content: Text(message, style: const TextStyle(fontSize: 16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx); // Close the dialog
+              onOk(); // Run the navigation logic
+            },
+            child: const Text("OK", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+    );
+  }
+
   Future<void> _submitAuthForm() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -77,13 +99,12 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    
 
-    // --- 2. Firebase Processing ---
     setState(() => _isLoading = true);
+    
     try {
       if (_isLogin) {
-        // Login Logic
+        // --- LOGIN LOGIC ---
         UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email,
           password: password,
@@ -91,7 +112,7 @@ class _AuthScreenState extends State<AuthScreen> {
         
         if (!mounted) return;
 
-        // Fetch role from Firestore
+        // Fetch User Data to get Name & Role for the Greeting
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
@@ -99,14 +120,27 @@ class _AuthScreenState extends State<AuthScreen> {
         
         if (userDoc.exists) {
           String role = userDoc['role'];
-          if (role == 'Staff') {
-            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
-          } else {
-            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StudentHomeScreen()));
+          // Try to get name, default to 'User' if missing
+          String userName = (userDoc.data() as Map<String, dynamic>).containsKey('name') 
+              ? userDoc['name'] 
+              : 'User';
+
+          if (mounted) {
+            setState(() => _isLoading = false); // Stop loading spinner
+            
+            // Show Popup: "Welcome back [Name]"
+            _showSuccessDialog("Welcome back $userName!", () {
+              // Navigate only after OK is clicked
+              if (role == 'Staff') {
+                Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
+              } else {
+                Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StudentHomeScreen()));
+              }
+            });
           }
         }
       } else {
-        // Sign Up Logic
+        // --- REGISTRATION LOGIC ---
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
           password: password,
@@ -120,30 +154,30 @@ class _AuthScreenState extends State<AuthScreen> {
           'role': _role,
         });
 
-        if (!mounted) return;
-
-        if (_role == 'Staff') {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
-        } else {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StudentHomeScreen()));
+        if (mounted) {
+          setState(() => _isLoading = false); // Stop loading spinner
+          
+          // Show Popup: "Welcome [Name] to ParcelHub Siswa!"
+          _showSuccessDialog("Welcome $name to ParcelHub Siswa!", () {
+            // Navigate only after OK is clicked
+            if (_role == 'Staff') {
+              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
+            } else {
+              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StudentHomeScreen()));
+            }
+          });
         }
       }
     } on FirebaseAuthException catch (e) {
+      setState(() => _isLoading = false);
       String errorMessage = 'Authentication failed';
-      if (e.code == 'email-already-in-use') {
-        errorMessage = 'This email is already registered.';
-      } else if (e.code == 'user-not-found') {
-        errorMessage = 'No user found with this email.';
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'Incorrect password.';
-      }
+      if (e.code == 'email-already-in-use') errorMessage = 'This email is already registered.';
+      else if (e.code == 'user-not-found') errorMessage = 'No user found with this email.';
+      else if (e.code == 'wrong-password') errorMessage = 'Incorrect password.';
       _showToast(errorMessage);
     } catch (e) {
+      setState(() => _isLoading = false);
       _showToast("An error occurred. Please try again.");
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
@@ -155,7 +189,7 @@ class _AuthScreenState extends State<AuthScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF6200EA), Color(0xFF90CAF9)], // Purple to Blue
+            colors: [Color(0xFF6200EA), Color(0xFF90CAF9)],
           ),
         ),
         child: Center(
@@ -203,7 +237,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Role Selection (Radio)
+                    // Role Selection
                     Row(
                       children: [
                         const Text('I am a: '),
@@ -226,12 +260,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     if (!_isLogin) ...[
                       TextFormField(
                         controller: _nameController, 
-                        decoration: const InputDecoration(labelText: 'Full Name *'), // Added * to indicate required
+                        decoration: const InputDecoration(labelText: 'Full Name *'),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _matricController, 
-                        decoration: const InputDecoration(labelText: 'Student/Staff ID *'), // Added * to indicate required
+                        decoration: const InputDecoration(labelText: 'Student/Staff ID *'),
                       ),
                       const SizedBox(height: 12),
                     ],
