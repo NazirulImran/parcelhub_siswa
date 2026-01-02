@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // Import Storage
-import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:typed_data'; // Needed for Uint8List
+
+// Remove import 'dart:io'; because it breaks on Web!
 
 class PaymentPage extends StatefulWidget {
   final String docId;
@@ -19,30 +22,33 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Future<void> _uploadReceipt() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50); // Quality 50 is good for storage
+    
+    // Pick the image
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
     
     if (image != null) {
       setState(() => _isLoading = true);
       
       try {
-        File file = File(image.path);
+        // 1. Read the file as Bytes (Works on Web & Mobile)
+        Uint8List fileBytes = await image.readAsBytes();
         
-        // 1. Create a reference to Firebase Storage
-        // Naming format: receipts/parcelID_timestamp.jpg
+        // 2. Create Reference
         String fileName = 'receipts/${widget.docId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
         Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-        // 2. Upload the file
-        await storageRef.putFile(file);
+        // 3. Upload using putData (instead of putFile)
+        // We add metadata so Firebase knows it's an image
+        await storageRef.putData(fileBytes, SettableMetadata(contentType: 'image/jpeg'));
 
-        // 3. Get the Download URL
+        // 4. Get Download URL
         String downloadUrl = await storageRef.getDownloadURL();
 
-        // 4. Save the URL to Firestore (instead of base64)
+        // 5. Save to Firestore
         await FirebaseFirestore.instance.collection('parcels').doc(widget.docId).update({
           'status': 'Pending Verification',
           'payment_method': 'Online',
-          'receipt_image': downloadUrl, // Saving URL now
+          'receipt_image': downloadUrl,
           'student_id': FirebaseAuth.instance.currentUser?.uid,
         });
 
@@ -52,6 +58,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       } catch (e) {
         setState(() => _isLoading = false);
+        print("Error: $e"); // Check Console for details
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error uploading: $e")));
       }
     }
@@ -59,6 +66,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (Keep your build method exactly the same as before) ...
     return Scaffold(
       appBar: AppBar(
         title: const Text("Pay Online", style: TextStyle(color: Colors.white)),
@@ -74,12 +82,11 @@ class _PaymentPageState extends State<PaymentPage> {
             Text("Ref: ${widget.tracking}", style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 30),
             
-            // --- UPDATED: DISPLAY YOUR STATIC IMAGE ---
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 2)),
               child: Image.asset(
-                'assets/images/duitnow.png', // Ensure this matches your file path
+                'assets/images/duitnow.png',
                 width: 280,
                 height: 350,
                 fit: BoxFit.contain,
@@ -90,7 +97,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ),
             ),
-            // ------------------------------------------
             
             const SizedBox(height: 40),
             SizedBox(
