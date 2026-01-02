@@ -42,6 +42,7 @@ dependencies:
   qr_flutter: ^4.1.0
   image_picker: ^1.2.1
   intl: ^0.20.2
+  firebase_storage: ^11.6.0
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +65,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+  - assets/images/duitnow.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

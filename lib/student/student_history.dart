@@ -76,8 +76,8 @@ class StudentHistoryScreen extends StatelessWidget {
                                   height: 200,
                                   width: double.infinity,
                                   decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
-                                  child: Image.memory(
-                                    base64Decode(data['receipt_image']),
+                                  child: Image.network(
+                                    data['receipt_image'],
                                     fit: BoxFit.cover,
                                     errorBuilder: (c,o,s) => const Center(child: Text("Image Error")),
                                   ),

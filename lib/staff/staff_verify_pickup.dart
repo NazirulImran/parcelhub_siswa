@@ -139,17 +139,22 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                              ),
                            ),
                         
-                        if (_parcelData!['payment_method'] == 'Cash')
-                           Container(
-                             padding: const EdgeInsets.all(12),
-                             margin: const EdgeInsets.only(top: 10),
-                             decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(8)),
-                             child: const Row(
-                               children: [
-                                 Icon(Icons.warning, color: Colors.orange),
-                                 SizedBox(width: 8),
-                                 Expanded(child: Text("Collect RM 5.00 Cash from student!", style: TextStyle(fontWeight: FontWeight.bold))),
-                               ],
+                        // Show Receipt if Online Payment
+                        if (_parcelData!['payment_method'] == 'Online' && _parcelData!['receipt_image'] != null)
+                           Expanded(
+                             child: GestureDetector(
+                               onTap: () {
+                                 showDialog(context: context, builder: (_) => Dialog(child: Image.network(_parcelData!['receipt_image'])));
+                               },
+                               child: Container(
+                                 margin: const EdgeInsets.symmetric(vertical: 10),
+                                 decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
+                                 child: Image.network(
+                                    _parcelData!['receipt_image'], 
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image)),
+                                 ),
+                               ),
                              ),
                            ),
 

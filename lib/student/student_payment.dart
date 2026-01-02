@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // Import Storage
 import 'dart:io';
-import 'dart:convert';
 
 class PaymentPage extends StatefulWidget {
   final String docId;
@@ -20,24 +19,41 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Future<void> _uploadReceipt() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 30);
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50); // Quality 50 is good for storage
     
     if (image != null) {
       setState(() => _isLoading = true);
-      File file = File(image.path);
-      List<int> bytes = await file.readAsBytes();
-      String base64Image = base64Encode(bytes);
+      
+      try {
+        File file = File(image.path);
+        
+        // 1. Create a reference to Firebase Storage
+        // Naming format: receipts/parcelID_timestamp.jpg
+        String fileName = 'receipts/${widget.docId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-      await FirebaseFirestore.instance.collection('parcels').doc(widget.docId).update({
-        'status': 'Pending Verification',
-        'payment_method': 'Online',
-        'receipt_image': base64Image,
-        'student_id': FirebaseAuth.instance.currentUser?.uid,
-      });
+        // 2. Upload the file
+        await storageRef.putFile(file);
 
-      if (!mounted) return;
-      Navigator.pop(context); 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Receipt Uploaded! Waiting for approval.")));
+        // 3. Get the Download URL
+        String downloadUrl = await storageRef.getDownloadURL();
+
+        // 4. Save the URL to Firestore (instead of base64)
+        await FirebaseFirestore.instance.collection('parcels').doc(widget.docId).update({
+          'status': 'Pending Verification',
+          'payment_method': 'Online',
+          'receipt_image': downloadUrl, // Saving URL now
+          'student_id': FirebaseAuth.instance.currentUser?.uid,
+        });
+
+        if (!mounted) return;
+        Navigator.pop(context); 
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Receipt Uploaded! Waiting for approval.")));
+
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error uploading: $e")));
+      }
     }
   }
 
@@ -58,11 +74,23 @@ class _PaymentPageState extends State<PaymentPage> {
             Text("Ref: ${widget.tracking}", style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 30),
             
+            // --- UPDATED: DISPLAY YOUR STATIC IMAGE ---
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 2)),
-              child: QrImageView(data: "00020101021226580014ID.LINK.BNM.QR01100000000000...", size: 280),
+              child: Image.asset(
+                'assets/images/duitnow.png', // Ensure this matches your file path
+                width: 280,
+                height: 350,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  height: 280, 
+                  width: 280, 
+                  child: Center(child: Text("QR Image Not Found\nCheck assets folder", textAlign: TextAlign.center))
+                ),
+              ),
             ),
+            // ------------------------------------------
             
             const SizedBox(height: 40),
             SizedBox(
