@@ -14,14 +14,16 @@ class StaffRegisterParcel extends StatefulWidget {
 class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
   final _trackingController = TextEditingController();
   final _shelfController = TextEditingController();
-  final _recipientController = TextEditingController();
-  final _otherTypeController = TextEditingController(); // For "Others" input
+  
+  // 1. RENAMED CONTROLLER (Old: _recipientController)
+  final _remarkController = TextEditingController(); 
+  
+  final _otherTypeController = TextEditingController();
   
   bool _isManualMode = false;
   bool _isLoading = false;
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
-  // Dropdown Data
   String? _selectedType;
   final List<String> _parcelTypes = [
     'Box',
@@ -31,7 +33,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     'Others'
   ];
 
-  // 1. Fetch Staff Name
   Future<String> _getStaffName() async {
     if (currentUser == null) return "Staff";
     try {
@@ -45,7 +46,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     }
   }
 
-  // 2. Barcode Scanner
   void _scanBarcode(bool isShelf) {
     showModalBottomSheet(
       context: context,
@@ -95,14 +95,12 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     );
   }
 
-  // 3. Save Logic
   Future<void> _saveParcel() async {
     if (_trackingController.text.isEmpty || _shelfController.text.isEmpty || _selectedType == null) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill in all fields!"), backgroundColor: Colors.red));
       return;
     }
 
-    // Handle "Others" type logic
     String finalParcelType = _selectedType!;
     if (_selectedType == 'Others') {
       if (_otherTypeController.text.trim().isEmpty) {
@@ -118,8 +116,12 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       await FirebaseFirestore.instance.collection('parcels').add({
         'tracking_number': _trackingController.text.trim(),
         'shelf_location': _shelfController.text.trim(),
-        'recipient_email': _recipientController.text.trim(),
-        'parcel_type': finalParcelType, // Saving the category
+        
+        // 2. UPDATED DATABASE FIELD
+        // Changed key from 'recipient_email' to 'remark'
+        'remark': _remarkController.text.trim(), 
+        
+        'parcel_type': finalParcelType,
         'status': 'Awaiting Payment', 
         'arrival_date': DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now()),
         'payment_method': 'Pending',
@@ -149,7 +151,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-             // Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 100, 24, 30),
@@ -172,7 +173,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
               ),
             ),
 
-             // Main Card
             Transform.translate(
               offset: const Offset(0, -20),
               child: Padding(
@@ -185,7 +185,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Mode Toggle
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
@@ -200,7 +199,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         const Text("Parcel Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                         
-                        // Inputs
                         _buildAnimatedInputField(
                           controller: _trackingController, 
                           label: "Tracking Number", 
@@ -218,7 +216,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         ),
                         const SizedBox(height: 16),
 
-                        // --- NEW: Parcel Category Dropdown ---
                         DropdownButtonFormField<String>(
                           value: _selectedType,
                           decoration: InputDecoration(
@@ -232,7 +229,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                           onChanged: (val) => setState(() => _selectedType = val),
                         ),
                         
-                        // "Others" Input Field (Visible only if 'Others' selected)
                         if (_selectedType == 'Others') ...[
                           const SizedBox(height: 12),
                           TextFormField(
@@ -248,12 +244,13 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
 
                         const SizedBox(height: 16),
 
-                        // Email Link
+                        // 3. UPDATED INPUT FIELD UI
+                        // Replaced Email input with Remark input
                         TextFormField(
-                          controller: _recipientController,
+                          controller: _remarkController, // Uses the renamed controller
                           decoration: InputDecoration(
-                            labelText: "Student Email (Optional)",
-                            prefixIcon: const Icon(Icons.email, color: Colors.grey),
+                            labelText: "Remark (Optional)", // New Label
+                            prefixIcon: const Icon(Icons.note, color: Colors.grey), // New Icon
                             filled: true,
                             fillColor: Colors.grey.shade50,
                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -262,7 +259,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         
                         const SizedBox(height: 24),
 
-                        // Submit
                         SizedBox(
                           width: double.infinity,
                           height: 50,
