@@ -14,10 +14,8 @@ class StaffRegisterParcel extends StatefulWidget {
 class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
   final _trackingController = TextEditingController();
   final _shelfController = TextEditingController();
-  
-  // 1. RENAMED CONTROLLER (Old: _recipientController)
   final _remarkController = TextEditingController(); 
-  
+  final _weightController = TextEditingController(); // NEW: Weight Controller
   final _otherTypeController = TextEditingController();
   
   bool _isManualMode = false;
@@ -26,24 +24,25 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
 
   String? _selectedType;
   final List<String> _parcelTypes = [
-    'Box',
-    'Bulky/Large Item',
-    'Documents',
-    'Soft Package',
-    'Others'
+    'Box', 'Bulky/Large Item', 'Documents', 'Soft Package', 'Others'
   ];
 
   Future<String> _getStaffName() async {
     if (currentUser == null) return "Staff";
     try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser!.uid)
-          .get();
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
       return userDoc['name'] ?? "Staff member";
     } catch (e) {
       return "Staff member";
     }
+  }
+
+  // Helper: Calculate Fee
+  double calculateParcelFee(double weightInKg) {
+    if (weightInKg <= 2.0) return 0.50;
+    if (weightInKg <= 3.0) return 1.00;
+    if (weightInKg <= 5.0) return 2.00;
+    return 3.00;
   }
 
   void _scanBarcode(bool isShelf) {
@@ -53,16 +52,12 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         height: MediaQuery.of(context).size.height * 0.6,
-        decoration: const BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-        ),
+        decoration: const BoxDecoration(color: Colors.black, borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24))),
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Text(isShelf ? "Scan Shelf Code" : "Scan Tracking Label", 
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text(isShelf ? "Scan Shelf Code" : "Scan Tracking Label", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             Expanded(
               child: MobileScanner(
@@ -77,18 +72,12 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                       }
                     });
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Scanned: ${barcodes.first.rawValue}"), backgroundColor: Colors.green)
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Scanned: ${barcodes.first.rawValue}"), backgroundColor: Colors.green));
                   }
                 },
               ),
             ),
-             TextButton.icon(
-               onPressed: () => Navigator.pop(ctx), 
-               icon: const Icon(Icons.close, color: Colors.white), 
-               label: const Text("Cancel", style: TextStyle(color: Colors.white))
-             )
+             TextButton.icon(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: Colors.white), label: const Text("Cancel", style: TextStyle(color: Colors.white)))
           ],
         ),
       ),
@@ -96,8 +85,8 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
   }
 
   Future<void> _saveParcel() async {
-    if (_trackingController.text.isEmpty || _shelfController.text.isEmpty || _selectedType == null) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill in all fields!"), backgroundColor: Colors.red));
+    if (_trackingController.text.isEmpty || _shelfController.text.isEmpty || _weightController.text.isEmpty || _selectedType == null) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill in all fields (Tracking, Shelf, Weight, Type)!"), backgroundColor: Colors.red));
       return;
     }
 
@@ -110,18 +99,19 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       finalParcelType = _otherTypeController.text.trim();
     }
 
+    double weight = double.tryParse(_weightController.text) ?? 0.0;
+    double fee = calculateParcelFee(weight);
+
     setState(() => _isLoading = true);
 
     try {
       await FirebaseFirestore.instance.collection('parcels').add({
         'tracking_number': _trackingController.text.trim(),
         'shelf_location': _shelfController.text.trim(),
-        
-        // 2. UPDATED DATABASE FIELD
-        // Changed key from 'recipient_email' to 'remark'
-        'remark': _remarkController.text.trim(), 
-        
+        'remark': _remarkController.text.trim(),
         'parcel_type': finalParcelType,
+        'weight': weight, // Save Weight
+        'fee': fee,       // Save Fee
         'status': 'Awaiting Payment', 
         'arrival_date': DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now()),
         'payment_method': 'Pending',
@@ -154,10 +144,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 100, 24, 30),
-              decoration: const BoxDecoration(
-                color: Color(0xFF6200EA),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFF6200EA), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30))),
               child: FutureBuilder<String>(
                 future: _getStaffName(),
                 builder: (context, snapshot) {
@@ -172,7 +159,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                 }
               ),
             ),
-
             Transform.translate(
               offset: const Offset(0, -20),
               child: Padding(
@@ -199,20 +185,22 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         const Text("Parcel Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                         
-                        _buildAnimatedInputField(
-                          controller: _trackingController, 
-                          label: "Tracking Number", 
-                          icon: Icons.local_shipping,
-                          isManual: _isManualMode,
-                          onTapScan: () => _scanBarcode(false)
-                        ),
+                        _buildAnimatedInputField(controller: _trackingController, label: "Tracking Number", icon: Icons.local_shipping, isManual: _isManualMode, onTapScan: () => _scanBarcode(false)),
                         const SizedBox(height: 16),
-                         _buildAnimatedInputField(
-                          controller: _shelfController, 
-                          label: "Shelf Location", 
-                          icon: Icons.inventory,
-                          isManual: _isManualMode,
-                          onTapScan: () => _scanBarcode(true)
+                         _buildAnimatedInputField(controller: _shelfController, label: "Shelf Location", icon: Icons.inventory, isManual: _isManualMode, onTapScan: () => _scanBarcode(true)),
+                        const SizedBox(height: 16),
+
+                        // NEW: Weight Input
+                        TextFormField(
+                          controller: _weightController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            labelText: "Parcel Weight (kg)",
+                            prefixIcon: const Icon(Icons.scale, color: Color(0xFF6200EA)),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
                         ),
                         const SizedBox(height: 16),
 
@@ -243,14 +231,11 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                         ],
 
                         const SizedBox(height: 16),
-
-                        // 3. UPDATED INPUT FIELD UI
-                        // Replaced Email input with Remark input
                         TextFormField(
-                          controller: _remarkController, // Uses the renamed controller
+                          controller: _remarkController,
                           decoration: InputDecoration(
-                            labelText: "Remark (Optional)", // New Label
-                            prefixIcon: const Icon(Icons.note, color: Colors.grey), // New Icon
+                            labelText: "Remark (Optional)",
+                            prefixIcon: const Icon(Icons.note, color: Colors.grey),
                             filled: true,
                             fillColor: Colors.grey.shade50,
                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),

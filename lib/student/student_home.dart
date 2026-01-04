@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/auth_screen.dart';
 import '../screens/profile_screen.dart'; 
 import 'student_history.dart';           
-import 'student_payment.dart'; // IMPORT PAYMENT PAGE
-import 'student_qr.dart';      // IMPORT QR PAGE
+import 'student_payment.dart';
+import 'student_qr.dart';      
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -70,7 +70,41 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     }
   }
 
-  void _showPaymentChoiceModal(BuildContext context, String docId, String tracking) {
+  void _showPriceListDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Collection Fee Rates"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildPriceRow("0 - 2 kg", "RM 0.50"),
+            _buildPriceRow("2 - 3 kg", "RM 1.00"),
+            _buildPriceRow("3 - 5 kg", "RM 2.00"),
+            _buildPriceRow("> 5 kg", "RM 3.00"),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close")),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceRow(String weight, String price) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(weight, style: const TextStyle(fontSize: 16)),
+          Text(price, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  void _showPaymentChoiceModal(BuildContext context, String docId, String tracking, double fee) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -80,7 +114,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Select Payment Method", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text("Pay Fee: RM ${fee.toStringAsFixed(2)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             ListTile(
               leading: Container(
@@ -212,58 +246,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                   )),
                   const SizedBox(width: 16),
                   Expanded(
-                      child: _MenuButton(
-                        icon: Icons.help_outline,
-                        label: "Help",
-                        color: Colors.orange,
-                        onTap: () {
-                          // --- NEW POPUP CODE ---
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              title: const Row(
-                                children: [
-                                  Icon(Icons.contact_support, color: Colors.orange),
-                                  SizedBox(width: 10),
-                                  Text("Support Center"),
-                                ],
-                              ),
-                              content: const Column(
-                                mainAxisSize: MainAxisSize.min, // Make dialog fit content
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Need assistance? Contact us at:"),
-                                  SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.email, size: 18, color: Colors.grey),
-                                      SizedBox(width: 8),
-                                      Expanded(child: Text("parcelhub@siswa.umt.edu.my", style: TextStyle(fontWeight: FontWeight.bold))),
-                                    ],
-                                  ),
-                                  SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.phone, size: 18, color: Colors.grey),
-                                      SizedBox(width: 8),
-                                      Text("012-3456789", style: TextStyle(fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx), // Close the popup
-                                  child: const Text("OK", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ),
-                          );
-                          // ----------------------
-                        },
-                      ),
+                    child: _MenuButton(
+                      icon: Icons.price_check,
+                      label: "View Rates",
+                      color: Colors.green,
+                      onTap: () => _showPriceListDialog(context), // OPEN PRICE LIST
                     ),
+                  ),
                 ],
               ),
             ),
@@ -292,6 +281,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
   Widget _buildParcelCard(Map<String, dynamic> data, String docId) {
     String status = data['status'] ?? 'Unknown';
+    double weight = (data['weight'] is int) ? (data['weight'] as int).toDouble() : (data['weight'] ?? 0.0);
+    double fee = (data['fee'] is int) ? (data['fee'] as int).toDouble() : (data['fee'] ?? 0.0);
+
     Color statusColor = Colors.grey;
     if (status == 'Awaiting Payment') statusColor = Colors.orange;
     if (status == 'Pending Verification') statusColor = Colors.purple;
@@ -321,16 +313,27 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 const Divider(height: 24),
                 _detailRow("Shelf Location", data['shelf_location']),
                 const Divider(height: 24),
-                _detailRow("Type", data['parcel_type'] ?? 'Standard'),
+                _detailRow("Weight", "$weight kg"),
+                const SizedBox(height: 10),
+                
+                // DISPLAY FEE
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Collection Fee", style: TextStyle(color: Colors.grey)),
+                    Text("RM ${fee.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
+                  ],
+                ),
+
                 const SizedBox(height: 20),
                 
                 if (status == 'Awaiting Payment')
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => _showPaymentChoiceModal(context, docId, data['tracking_number']),
+                      onPressed: () => _showPaymentChoiceModal(context, docId, data['tracking_number'], fee),
                       icon: const Icon(Icons.payment),
-                      label: const Text("Pay Now (RM 5.00)"),
+                      label: Text("Pay Now (RM ${fee.toStringAsFixed(2)})"),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                     ),
                   ),
