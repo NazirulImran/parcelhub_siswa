@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:convert';
+import 'receipt_screen.dart'; // <--- 1. IMPORT THE NEW FILE HERE
 
 class StudentHistoryScreen extends StatelessWidget {
   const StudentHistoryScreen({super.key});
@@ -19,16 +19,12 @@ class StudentHistoryScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('parcels')
-            .where('status', isEqualTo: 'Collected') // Only show collected items
-            // Note: In a real app, you might want to filter by 'recipient_email' or 'student_id' too
-            // .where('student_id', isEqualTo: user?.uid) 
+            .where('status', isEqualTo: 'Collected')
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           
-          // Filter locally if needed (e.g., if you don't have composite indexes setup)
           final myHistory = snapshot.data!.docs.where((doc) {
-             // Logic: Check if it belongs to this user (either by ID or Email match)
              final data = doc.data() as Map<String, dynamic>;
              return data['student_id'] == user?.uid || data['recipient_email'] == user?.email;
           }).toList();
@@ -51,6 +47,7 @@ class StudentHistoryScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               var data = myHistory[index].data() as Map<String, dynamic>;
               return Card(
+                elevation: 2,
                 margin: const EdgeInsets.only(bottom: 16),
                 child: ExpansionTile(
                   leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
@@ -65,25 +62,52 @@ class StudentHistoryScreen extends StatelessWidget {
                           _infoRow("Shelf", data['shelf_location']),
                           _infoRow("Type", data['parcel_type'] ?? 'N/A'),
                           _infoRow("Payment", data['payment_method']),
+                          
                           const SizedBox(height: 10),
+                          
                           if (data['payment_method'] == 'Online' && data['receipt_image'] != null)
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text("Receipt:", style: TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 8),
-                                Container(
-                                  height: 200,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
-                                  child: Image.network(
-                                    data['receipt_image'],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (c,o,s) => const Center(child: Text("Image Error")),
+                                const Text("Payment Proof Uploaded:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                                const SizedBox(height: 4),
+                                GestureDetector(
+                                  onTap: () {
+                                    showDialog(context: context, builder: (_) => Dialog(child: Image.network(data['receipt_image'])));
+                                  },
+                                  child: Container(
+                                    height: 100,
+                                    width: 100,
+                                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300)),
+                                    child: Image.network(
+                                      data['receipt_image'],
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (c,o,s) => const Center(child: Icon(Icons.broken_image)),
+                                    ),
                                   ),
                                 ),
                               ],
-                            )
+                            ),
+
+                          const SizedBox(height: 20),
+                          
+                          // --- 2. NEW RECEIPT BUTTON ---
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => ReceiptScreen(data: data)));
+                              },
+                              icon: const Icon(Icons.receipt_long),
+                              label: const Text("View Official Receipt"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6200EA),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                          // ---------------------------
                         ],
                       ),
                     )
