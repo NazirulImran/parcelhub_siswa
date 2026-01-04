@@ -156,7 +156,16 @@ class StaffDashboard extends StatelessWidget {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () async {
-              double newWeight = double.tryParse(weightCtrl.text) ?? 0.0;
+              double? newWeight = double.tryParse(weightCtrl.text);
+      
+              if (newWeight == null || newWeight <= 0) {
+                // Show error message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Weight must be a positive number!"), backgroundColor: Colors.red)
+                );
+                return; 
+              }
+
               double newFee = calculateParcelFee(newWeight); // Recalculate fee
 
               await FirebaseFirestore.instance.collection('parcels').doc(docId).update({

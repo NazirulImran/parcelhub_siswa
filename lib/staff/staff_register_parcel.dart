@@ -90,6 +90,16 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       return;
     }
 
+    // 2. Validate Weight (Must be number and > 0)
+    double? weight = double.tryParse(_weightController.text);
+    
+    if (weight == null || weight <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid Weight: Must be a positive number"), backgroundColor: Colors.red)
+      );
+      return; 
+    }
+
     String finalParcelType = _selectedType!;
     if (_selectedType == 'Others') {
       if (_otherTypeController.text.trim().isEmpty) {
@@ -99,7 +109,6 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       finalParcelType = _otherTypeController.text.trim();
     }
 
-    double weight = double.tryParse(_weightController.text) ?? 0.0;
     double fee = calculateParcelFee(weight);
 
     setState(() => _isLoading = true);
