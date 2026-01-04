@@ -130,20 +130,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                            Expanded(
                              child: GestureDetector(
                                onTap: () {
-                                 // Optionally show full image
-                               },
-                               child: Container(
-                                 decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
-                                 child: Image.memory(base64Decode(_parcelData!['receipt_image']), fit: BoxFit.cover),
-                               ),
-                             ),
-                           ),
-                        
-                        // Show Receipt if Online Payment
-                        if (_parcelData!['payment_method'] == 'Online' && _parcelData!['receipt_image'] != null)
-                           Expanded(
-                             child: GestureDetector(
-                               onTap: () {
                                  showDialog(context: context, builder: (_) => Dialog(child: Image.network(_parcelData!['receipt_image'])));
                                },
                                child: Container(

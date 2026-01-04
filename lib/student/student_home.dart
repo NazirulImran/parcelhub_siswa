@@ -211,14 +211,59 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentHistoryScreen())),
                   )),
                   const SizedBox(width: 16),
-                  Expanded(child: _MenuButton(
-                    icon: Icons.help_outline, 
-                    label: "Help", 
-                    color: Colors.orange,
-                    onTap: () {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Contact parcelhub@siswa.edu.my for support.")));
-                    },
-                  )),
+                  Expanded(
+                      child: _MenuButton(
+                        icon: Icons.help_outline,
+                        label: "Help",
+                        color: Colors.orange,
+                        onTap: () {
+                          // --- NEW POPUP CODE ---
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.contact_support, color: Colors.orange),
+                                  SizedBox(width: 10),
+                                  Text("Support Center"),
+                                ],
+                              ),
+                              content: const Column(
+                                mainAxisSize: MainAxisSize.min, // Make dialog fit content
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("Need assistance? Contact us at:"),
+                                  SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.email, size: 18, color: Colors.grey),
+                                      SizedBox(width: 8),
+                                      Expanded(child: Text("parcelhub@siswa.umt.edu.my", style: TextStyle(fontWeight: FontWeight.bold))),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.phone, size: 18, color: Colors.grey),
+                                      SizedBox(width: 8),
+                                      Text("012-3456789", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx), // Close the popup
+                                  child: const Text("OK", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          );
+                          // ----------------------
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -236,7 +281,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                           width: double.infinity,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                          child: Text(_statusMessage.isEmpty ? "Search to view details" : _statusMessage, style: TextStyle(color: Colors.grey[400])),
+                          child: Text(_statusMessage.isEmpty ? "Search for parcel's tracking number to view details here" : _statusMessage, style: TextStyle(color: Colors.grey[400])),
                         ),
             ),
           ],
