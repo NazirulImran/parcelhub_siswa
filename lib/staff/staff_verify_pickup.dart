@@ -16,7 +16,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   Map<String, dynamic>? _scannedData;
   String? _scannedDocId;
 
-  // --- Helper: Calculate Fee (Same as in other files) ---
+  // --- Helper: Calculate Fee ---
   double calculateParcelFee(double weightInKg) {
     if (weightInKg <= 2.0) return 0.50;
     if (weightInKg <= 3.0) return 1.00;
@@ -25,24 +25,36 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    if (!_isScanning) return; // Prevent multiple triggers
-
     final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
+    if (barcodes.isNotEmpty && _isScanning) {
+      setState(() => _isScanning = false); 
+      
+      final String rawCode = barcodes.first.rawValue ?? '';
+      String extractedTracking = rawCode;
 
-    final String code = barcodes.first.rawValue ?? '';
-    if (code.isEmpty) return;
+      // --- Parsing Logic ---
+      final RegExp trackingRegex = RegExp(r"Tracking:\s*(.*)");
+      final Match? match = trackingRegex.firstMatch(rawCode);
 
-    setState(() {
-      _isScanning = false; // Stop scanning momentarily
-      _isLoading = true;
-    });
+      if (match != null) {
+        extractedTracking = match.group(1)?.trim() ?? extractedTracking;
+      }
 
+      print("Scanned: $extractedTracking"); // Debugging
+
+      // Call the fetch function
+      _fetchParcelDetails(extractedTracking);
+    }
+  }
+
+  // --- MISSING FUNCTION ADDED HERE ---
+  Future<void> _fetchParcelDetails(String trackingNumber) async {
+    setState(() => _isLoading = true);
+    
     try {
-      // 1. Search for parcel by Tracking Number
       final snapshot = await FirebaseFirestore.instance
           .collection('parcels')
-          .where('tracking_number', isEqualTo: code)
+          .where('tracking_number', isEqualTo: trackingNumber)
           .limit(1)
           .get();
 
@@ -52,18 +64,22 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
         setState(() {
           _scannedDocId = snapshot.docs.first.id;
           _scannedData = snapshot.docs.first.data();
+          _isLoading = false;
         });
       }
     } catch (e) {
       _showError("Error: $e");
-    } finally {
       setState(() => _isLoading = false);
     }
   }
+  // ------------------------------------
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-    setState(() => _isScanning = true); // Resume scanning
+    setState(() {
+      _isScanning = true;
+      _isLoading = false;
+    });
   }
 
   Future<void> _releaseParcel() async {
@@ -72,7 +88,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
     setState(() => _isLoading = true);
     try {
       await FirebaseFirestore.instance.collection('parcels').doc(_scannedDocId).update({
-        'status': 'Completed', // or 'Collected'
+        'status': 'Collected', // Updated status
         'collected_at': FieldValue.serverTimestamp(),
       });
 
@@ -90,7 +106,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
     } catch (e) {
       _showError("Failed to update status: $e");
-      setState(() => _isLoading = false);
     }
   }
 
@@ -104,12 +119,10 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. If we have scanned data, show the FULL SCREEN Success Card
     if (_scannedData != null) {
       return _buildFullScreenSuccess();
     }
 
-    // 2. Otherwise, show the Scanner (Half Screen style)
     return Scaffold(
       appBar: AppBar(
         title: const Text("Scan for Release", style: TextStyle(color: Colors.white)),
@@ -118,14 +131,12 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
       ),
       body: Column(
         children: [
-          // Top Half: Scanner
           Expanded(
             flex: 5,
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator()) 
               : MobileScanner(onDetect: _onDetect),
           ),
-          // Bottom Half: Instructions
           Expanded(
             flex: 4,
             child: Container(
@@ -139,7 +150,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                   const SizedBox(height: 16),
                   const Text("Align QR Code within the frame", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  const Text("Scan the student's parcel QR code to verify details and release the item.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                  const Text("Scan the student's parcel QR code to verify details.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
@@ -149,22 +160,22 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
     );
   }
 
-  // --- FULL SCREEN RESULT WIDGET ---
   Widget _buildFullScreenSuccess() {
     final data = _scannedData!;
     
-    // Payment Logic
     String paymentMethod = data['payment_method'] ?? 'Unknown';
     double weight = (data['weight'] is int) ? (data['weight'] as int).toDouble() : (data['weight'] ?? 0.0);
     double fee = calculateParcelFee(weight);
     
     bool isCash = paymentMethod == 'Cash';
-    bool isOnline = paymentMethod == 'Online' || paymentMethod == 'DuitNow';
+    
+    // Note: If payment is pending/awaiting, we treat it as Cash or incomplete
+    bool isPaid = paymentMethod == 'Online' || paymentMethod == 'DuitNow';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Verify & Release", style: TextStyle(color: Colors.white)),
-        backgroundColor: isCash ? Colors.orange : Colors.green, // Orange for Cash, Green for Online
+        backgroundColor: isCash ? Colors.orange : Colors.green,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: _cancelView,
@@ -175,7 +186,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Banner
             Center(
               child: Column(
                 children: [
@@ -187,7 +197,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
             ),
             const SizedBox(height: 30),
 
-            // Parcel Details Card
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -199,14 +208,13 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                     const Divider(),
                     _infoRow("Shelf Location", data['shelf_location']),
                     const Divider(),
-                    _infoRow("Student Name", data['student_name'] ?? 'N/A'), // Ensure this field exists or fetch user
+                    _infoRow("Weight", "${weight} kg"),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 20),
 
-            // Payment Details Card (The important part)
             Card(
               color: isCash ? Colors.orange.shade50 : Colors.green.shade50,
               elevation: 0,
@@ -222,7 +230,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                     Text("Payment Information", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isCash ? Colors.orange.shade800 : Colors.green.shade800)),
                     const SizedBox(height: 10),
                     
-                    // Payment Type Row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -235,7 +242,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Payment Message
                     if (isCash) 
                        Row(
                          children: [
@@ -265,7 +271,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
             const SizedBox(height: 40),
 
-            // Action Button
             SizedBox(
               width: double.infinity,
               height: 55,
