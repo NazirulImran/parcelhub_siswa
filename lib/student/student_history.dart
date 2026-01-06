@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'receipt_screen.dart'; // <--- 1. IMPORT THE NEW FILE HERE
+import 'package:intl/intl.dart'; // <--- ADDED IMPORT
+import 'receipt_screen.dart';
 
 class StudentHistoryScreen extends StatelessWidget {
   const StudentHistoryScreen({super.key});
+
+  // --- Helper to safely format date ---
+  String _formatDate(dynamic value) {
+    if (value == null) return 'N/A';
+    if (value is Timestamp) {
+      // Convert Firestore Timestamp to readable String
+      return DateFormat('yyyy-MM-dd hh:mm a').format(value.toDate());
+    }
+    return value.toString(); // It's already a String (New format)
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +31,7 @@ class StudentHistoryScreen extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection('parcels')
             .where('status', isEqualTo: 'Collected')
+            .orderBy('collected_at', descending: true) // Sort by latest
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
@@ -46,13 +58,20 @@ class StudentHistoryScreen extends StatelessWidget {
             itemCount: myHistory.length,
             itemBuilder: (context, index) {
               var data = myHistory[index].data() as Map<String, dynamic>;
+              
+              // Use the helper function here
+              String collectedTime = _formatDate(data['collected_at']); 
+
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.only(bottom: 16),
                 child: ExpansionTile(
                   leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
                   title: Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Collected: ${data['collected_at']?.toString().substring(0,10) ?? 'N/A'}"),
+                  
+                  // FIXED: Shows full time now
+                  subtitle: Text("Collected: $collectedTime"), 
+                  
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -91,7 +110,6 @@ class StudentHistoryScreen extends StatelessWidget {
 
                           const SizedBox(height: 20),
                           
-                          // --- 2. NEW RECEIPT BUTTON ---
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
@@ -107,7 +125,6 @@ class StudentHistoryScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          // ---------------------------
                         ],
                       ),
                     )

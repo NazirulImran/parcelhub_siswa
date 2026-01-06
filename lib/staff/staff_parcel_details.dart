@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // <--- ADDED IMPORT
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class StaffParcelDetailsPage extends StatelessWidget {
   final String docId;
   final Map<String, dynamic> data;
 
   const StaffParcelDetailsPage({super.key, required this.docId, required this.data});
+
+  // --- Helper to safely format date ---
+  String _formatDate(dynamic value) {
+    if (value == null) return 'Not collected yet';
+    if (value is Timestamp) {
+      return DateFormat('yyyy-MM-dd hh:mm a').format(value.toDate());
+    }
+    return value.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,8 +25,12 @@ class StaffParcelDetailsPage extends StatelessWidget {
     String shelf = data['shelf_location'] ?? 'N/A';
     String status = data['status'] ?? 'Unknown';
     String type = data['parcel_type'] ?? 'Standard';
-    String arrival = data['arrival_date'] ?? 'N/A';
-    String collectedAt = data['collected_at'] != null ? data['collected_at'].toString() : 'Not collected yet';
+    String arrival = _formatDate(data['arrival_date']);
+
+    
+    // FIXED: Use helper to format collected_at
+    String collectedAt = _formatDate(data['collected_at']); 
+    
     String remark = data['remark'] ?? 'No remarks';
     
     // Numbers
@@ -81,7 +97,7 @@ class StaffParcelDetailsPage extends StatelessWidget {
                     _divider(),
                     _detailRow(Icons.calendar_today, "Arrival Date", arrival),
                     _divider(),
-                    _detailRow(Icons.check_circle_outline, "Collected At", collectedAt),
+                    _detailRow(Icons.check_circle_outline, "Collected At", collectedAt), // Uses formatted string
                      _divider(),
                     _detailRow(Icons.note, "Remark", remark),
                   ],

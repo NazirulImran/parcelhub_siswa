@@ -78,35 +78,40 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   }
 
   Future<void> _releaseParcel() async {
-    if (_scannedDocId == null) return;
+  if (_scannedDocId == null) return;
 
-    setState(() => _isLoading = true);
-    try {
-      // --- NEW: Format the date exactly like Arrival Time ---
-      String formattedDate = DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now()); 
+  setState(() => _isLoading = true);
 
-      await FirebaseFirestore.instance.collection('parcels').doc(_scannedDocId).update({
-        'status': 'Collected', 
-        'collected_at': formattedDate, // <--- CHANGED THIS
-      });
+  try {
+    String formattedDate =
+        DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now());
 
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Parcel Released Successfully!"), backgroundColor: Colors.green));
-      
-      // Reset to scanner
-      setState(() {
-        _scannedData = null;
-        _scannedDocId = null;
-        _isScanning = true;
-        _isLoading = false;
-      });
+    await FirebaseFirestore.instance
+        .collection('parcels')
+        .doc(_scannedDocId)
+        .update({
+      'status': 'Collected',
+      'collected_at': formattedDate,
+    });
 
-    } catch (e) {
-      _showError("Failed to update status: $e");
-      setState(() => _isLoading = false);
-    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Parcel Released Successfully!"),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    Navigator.pop(context); // 👈 BACK TO DASHBOARD
+  } catch (e) {
+    _showError("Failed to update status: $e");
+    setState(() => _isLoading = false);
   }
+}
+
 
   void _cancelView() {
     setState(() {
