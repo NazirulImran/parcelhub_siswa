@@ -5,6 +5,7 @@ import 'staff_register_parcel.dart';
 import 'staff_verify_pickup.dart';
 import 'staff_approve_payment.dart';
 import '../screens/auth_screen.dart';
+import 'staff_parcel_details.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -129,35 +130,84 @@ class _StaffDashboardState extends State<StaffDashboard> {
                    children: docs.map((doc) {
                      var data = doc.data() as Map<String, dynamic>;
                      return Card(
-                       margin: const EdgeInsets.only(bottom: 8),
-                       elevation: 2,
-                       child: ListTile(
-                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                         title: Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                         subtitle: Column(
-                           crossAxisAlignment: CrossAxisAlignment.start,
-                           children: [
-                             Text("Shelf: ${data['shelf_location']}"),
-                             Text("Weight: ${data['weight']?.toString() ?? '0.0'} kg  •  Fee: RM ${(data['fee'] ?? 0).toStringAsFixed(2)}"),
-                           ],
-                         ),
-                         trailing: Row(
-                           mainAxisSize: MainAxisSize.min,
-                           children: [
-                             IconButton(
-                               icon: const Icon(Icons.edit, color: Colors.blue),
-                               onPressed: () => _showEditParcelDialog(context, doc.id, data),
-                             ),
-                             IconButton(
-                               icon: const Icon(Icons.delete, color: Colors.red),
-                               onPressed: () {
-                                 _confirmDelete(context, doc.id);
-                               },
-                             ),
-                           ],
-                         ),
-                       ),
-                     );
+                        margin: const EdgeInsets.only(bottom: 8),
+                        elevation: 2,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+
+                          // 👉 TAP TO VIEW DETAILS
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StaffParcelDetailsPage(
+                                  docId: doc.id,
+                                  data: data,
+                                ),
+                              ),
+                            );
+                          },
+
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+
+                            // --- TRACKING NUMBER ---
+                            title: Text(
+                              data['tracking_number'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+
+                            // --- STATUS ONLY ---
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 10,
+                                    color: data['status'] == 'Collected'
+                                        ? Colors.green
+                                        : Colors.orange,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    data['status'] ?? 'Pending',
+                                    style: TextStyle(
+                                      color: data['status'] == 'Collected'
+                                          ? Colors.green
+                                          : Colors.orange,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // --- EDIT & DELETE ONLY ---
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.blue),
+                                  onPressed: () {
+                                    _showEditParcelDialog(context, doc.id, data);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () {
+                                    _confirmDelete(context, doc.id);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+
                    }).toList(),
                  );
               }
