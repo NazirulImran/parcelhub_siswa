@@ -5,6 +5,7 @@ import 'staff_register_parcel.dart';
 import 'staff_verify_pickup.dart';
 import 'staff_approve_payment.dart';
 import '../screens/auth_screen.dart';
+import '../screens/profile_screen.dart'; // Import ProfileScreen
 
 class StaffDashboard extends StatelessWidget {
   const StaffDashboard({super.key});
@@ -16,8 +17,18 @@ class StaffDashboard extends StatelessWidget {
         title: const Text('Staff Portal', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF6200EA),
         actions: [
+          // --- NEW: Profile Button ---
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            tooltip: 'Edit Profile',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+            },
+          ),
+          // ---------------------------
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Logout',
             onPressed: () {
               FirebaseAuth.instance.signOut();
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
