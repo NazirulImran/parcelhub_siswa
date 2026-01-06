@@ -16,7 +16,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   Map<String, dynamic>? _scannedData;
   String? _scannedDocId;
 
-  // --- Helper: Calculate Fee ---
+  // Helper: Calculate Fee (needed for display before release)
   double calculateParcelFee(double weightInKg) {
     if (weightInKg <= 2.0) return 0.50;
     if (weightInKg <= 3.0) return 1.00;
@@ -32,7 +32,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
       final String rawCode = barcodes.first.rawValue ?? '';
       String extractedTracking = rawCode;
 
-      // --- Parsing Logic ---
       final RegExp trackingRegex = RegExp(r"Tracking:\s*(.*)");
       final Match? match = trackingRegex.firstMatch(rawCode);
 
@@ -40,14 +39,10 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
         extractedTracking = match.group(1)?.trim() ?? extractedTracking;
       }
 
-      print("Scanned: $extractedTracking"); // Debugging
-
-      // Call the fetch function
       _fetchParcelDetails(extractedTracking);
     }
   }
 
-  // --- MISSING FUNCTION ADDED HERE ---
   Future<void> _fetchParcelDetails(String trackingNumber) async {
     setState(() => _isLoading = true);
     
@@ -72,7 +67,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
       setState(() => _isLoading = false);
     }
   }
-  // ------------------------------------
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
@@ -88,7 +82,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
     setState(() => _isLoading = true);
     try {
       await FirebaseFirestore.instance.collection('parcels').doc(_scannedDocId).update({
-        'status': 'Collected', // Updated status
+        'status': 'Collected', 
         'collected_at': FieldValue.serverTimestamp(),
       });
 
@@ -96,13 +90,8 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
       
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Parcel Released Successfully!"), backgroundColor: Colors.green));
       
-      // Reset to scanner
-      setState(() {
-        _scannedData = null;
-        _scannedDocId = null;
-        _isScanning = true;
-        _isLoading = false;
-      });
+      // --- MODIFIED: Navigate back to Main Page immediately ---
+      Navigator.pop(context); 
 
     } catch (e) {
       _showError("Failed to update status: $e");
@@ -169,9 +158,6 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
     
     bool isCash = paymentMethod == 'Cash';
     
-    // Note: If payment is pending/awaiting, we treat it as Cash or incomplete
-    bool isPaid = paymentMethod == 'Online' || paymentMethod == 'DuitNow';
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Verify & Release", style: TextStyle(color: Colors.white)),

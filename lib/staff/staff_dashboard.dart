@@ -4,11 +4,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'staff_register_parcel.dart';
 import 'staff_verify_pickup.dart';
 import 'staff_approve_payment.dart';
+import 'staff_parcel_details.dart'; // Import the new details page
 import '../screens/auth_screen.dart';
-import '../screens/profile_screen.dart'; // Import ProfileScreen
 
 class StaffDashboard extends StatelessWidget {
   const StaffDashboard({super.key});
+
+  // Helper to re-calculate fee if editing (kept for edit dialog logic)
+  double calculateParcelFee(double weightInKg) {
+    if (weightInKg <= 2.0) return 0.50;
+    if (weightInKg <= 3.0) return 1.00;
+    if (weightInKg <= 5.0) return 2.00;
+    return 3.00;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,18 +25,8 @@ class StaffDashboard extends StatelessWidget {
         title: const Text('Staff Portal', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF6200EA),
         actions: [
-          // --- NEW: Profile Button ---
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            tooltip: 'Edit Profile',
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
-            },
-          ),
-          // ---------------------------
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Logout',
             onPressed: () {
               FirebaseAuth.instance.signOut();
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
@@ -45,7 +43,7 @@ class StaffDashboard extends StatelessWidget {
             const Text("Manage incoming parcels and verify collections", style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
 
-            // --- Action Buttons Row ---
+            // --- Action Buttons ---
             Row(
               children: [
                 Expanded(child: _ActionButton(icon: Icons.edit, label: "Register", color: Colors.blue, 
@@ -81,51 +79,81 @@ class StaffDashboard extends StatelessWidget {
                  return Column(
                    children: snapshot.data!.docs.map((doc) {
                      var data = doc.data() as Map<String, dynamic>;
+                     
+                     // Helper for status color
+                     Color statusColor = Colors.grey;
+                     String status = data['status'] ?? 'Unknown';
+                     if(status == 'Ready for Pickup') statusColor = Colors.green;
+                     if(status == 'Awaiting Payment') statusColor = Colors.orange;
+
                      return Card(
                        margin: const EdgeInsets.only(bottom: 8),
                        elevation: 2,
-                       child: ListTile(
-                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                         title: Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                         subtitle: Column(
-                           crossAxisAlignment: CrossAxisAlignment.start,
-                           children: [
-                             Text("Shelf: ${data['shelf_location']}"),
-                             Text("Weight: ${data['weight']?.toString() ?? '0.0'} kg  •  Fee: RM ${(data['fee'] ?? 0).toStringAsFixed(2)}"),
-                           ],
-                         ),
-                         trailing: Row(
-                           mainAxisSize: MainAxisSize.min,
-                           children: [
-                             // --- EDIT BUTTON ---
-                             IconButton(
-                               icon: const Icon(Icons.edit, color: Colors.blue),
-                               onPressed: () => _showEditParcelDialog(context, doc.id, data),
-                             ),
-                             // --- DELETE BUTTON ---
-                             IconButton(
-                               icon: const Icon(Icons.delete, color: Colors.red),
-                               onPressed: () {
-                                 showDialog(
-                                   context: context,
-                                   builder: (ctx) => AlertDialog(
-                                     title: const Text("Delete Parcel"),
-                                     content: const Text("Are you sure you want to remove this record?"),
-                                     actions: [
-                                       TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                                       TextButton(
-                                         onPressed: () async {
-                                           Navigator.pop(ctx);
-                                           await FirebaseFirestore.instance.collection('parcels').doc(doc.id).delete();
-                                         }, 
-                                         child: const Text("Delete", style: TextStyle(color: Colors.red))
-                                       ),
-                                     ],
+                       child: InkWell(
+                         // --- MODIFIED: Navigate to Details Page on Click ---
+                         onTap: () {
+                           Navigator.push(context, MaterialPageRoute(
+                             builder: (_) => StaffParcelDetailsPage(docId: doc.id, data: data)
+                           ));
+                         },
+                         child: Padding(
+                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                           child: Row(
+                             children: [
+                               // Left: Icon + Status Color
+                               Container(
+                                 width: 4, 
+                                 height: 40, 
+                                 decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(2)),
+                               ),
+                               const SizedBox(width: 16),
+                               
+                               // Middle: Simplified Info (Tracking & Status Only)
+                               Expanded(
+                                 child: Column(
+                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                   children: [
+                                     Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                     const SizedBox(height: 4),
+                                     Text(status, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                                   ],
+                                 ),
+                               ),
+
+                               // Right: Edit & Delete Actions
+                               Row(
+                                 mainAxisSize: MainAxisSize.min,
+                                 children: [
+                                   IconButton(
+                                     icon: const Icon(Icons.edit, color: Colors.blue),
+                                     onPressed: () => _showEditParcelDialog(context, doc.id, data),
                                    ),
-                                 );
-                               },
-                             ),
-                           ],
+                                   IconButton(
+                                     icon: const Icon(Icons.delete, color: Colors.red),
+                                     onPressed: () {
+                                       showDialog(
+                                         context: context,
+                                         builder: (ctx) => AlertDialog(
+                                           title: const Text("Delete Parcel"),
+                                           content: const Text("Are you sure you want to remove this record?"),
+                                           actions: [
+                                             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                                             TextButton(
+                                               onPressed: () async {
+                                                 Navigator.pop(ctx);
+                                                 await FirebaseFirestore.instance.collection('parcels').doc(doc.id).delete();
+                                               }, 
+                                               child: const Text("Delete", style: TextStyle(color: Colors.red))
+                                             ),
+                                           ],
+                                         ),
+                                       );
+                                     },
+                                   ),
+                                 ],
+                               ),
+                             ],
+                           ),
                          ),
                        ),
                      );
@@ -168,16 +196,12 @@ class StaffDashboard extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               double? newWeight = double.tryParse(weightCtrl.text);
-      
               if (newWeight == null || newWeight <= 0) {
-                // Show error message
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Weight must be a positive number!"), backgroundColor: Colors.red)
-                );
-                return; 
+                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid Weight"), backgroundColor: Colors.red));
+                 return;
               }
 
-              double newFee = calculateParcelFee(newWeight); // Recalculate fee
+              double newFee = calculateParcelFee(newWeight); 
 
               await FirebaseFirestore.instance.collection('parcels').doc(docId).update({
                 'tracking_number': trackingCtrl.text.trim(),
@@ -195,23 +219,14 @@ class StaffDashboard extends StatelessWidget {
   }
 }
 
-// --- Helper Functions ---
-double calculateParcelFee(double weightInKg) {
-  if (weightInKg <= 2.0) return 0.50;
-  if (weightInKg <= 3.0) return 1.00;
-  if (weightInKg <= 5.0) return 2.00;
-  return 3.00;
-}
-
 // --- Helper Widgets ---
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final bool isOutlined;
   final VoidCallback onTap;
 
-  const _ActionButton({required this.icon, required this.label, required this.color, this.isOutlined = false, required this.onTap});
+  const _ActionButton({required this.icon, required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -220,15 +235,14 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isOutlined ? Colors.white : const Color(0xFF6200EA),
-          border: isOutlined ? Border.all(color: Colors.grey.shade300) : null,
+          color: const Color(0xFF6200EA),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isOutlined ? Colors.black54 : Colors.white),
+            Icon(icon, color: Colors.white),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: isOutlined ? Colors.black54 : Colors.white, fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
