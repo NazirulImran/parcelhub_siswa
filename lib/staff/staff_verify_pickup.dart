@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class StaffVerifyPickup extends StatefulWidget {
   const StaffVerifyPickup({super.key});
@@ -81,20 +82,29 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
     setState(() => _isLoading = true);
     try {
+      // --- NEW: Format the date exactly like Arrival Time ---
+      String formattedDate = DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now()); 
+
       await FirebaseFirestore.instance.collection('parcels').doc(_scannedDocId).update({
         'status': 'Collected', 
-        'collected_at': FieldValue.serverTimestamp(),
+        'collected_at': formattedDate, // <--- CHANGED THIS
       });
 
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Parcel Released Successfully!"), backgroundColor: Colors.green));
       
-      // --- MODIFIED: Navigate back to Main Page immediately ---
-      Navigator.pop(context); 
+      // Reset to scanner
+      setState(() {
+        _scannedData = null;
+        _scannedDocId = null;
+        _isScanning = true;
+        _isLoading = false;
+      });
 
     } catch (e) {
       _showError("Failed to update status: $e");
+      setState(() => _isLoading = false);
     }
   }
 

@@ -33,8 +33,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     }
   }
 
+  // --- UPDATED SEARCH FUNCTION ---
   Future<void> _searchParcel() async {
-    if (_searchController.text.trim().isEmpty) return;
+    String query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -44,16 +47,30 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     });
 
     try {
+      // 1. Fetch recent parcels (Limit to last 100 to save reads/bandwidth)
+      // We fetch a batch because Firestore can't do case-insensitive substring search natively.
       final snapshot = await FirebaseFirestore.instance
           .collection('parcels')
-          .where('tracking_number', isEqualTo: _searchController.text.trim())
-          .limit(1)
+          .orderBy('arrival_date', descending: true) 
+          .limit(100) 
           .get();
 
-      if (snapshot.docs.isNotEmpty) {
+      // 2. Client-side Case-Insensitive Check
+      QueryDocumentSnapshot? match;
+      try {
+        match = snapshot.docs.firstWhere((doc) {
+          String tracking = (doc['tracking_number'] ?? '').toString().toLowerCase();
+          return tracking == query.toLowerCase();
+        });
+      } catch (e) {
+        // No match found in the list
+        match = null;
+      }
+
+      if (match != null) {
         setState(() {
-          _foundParcelId = snapshot.docs.first.id;
-          _foundParcelData = snapshot.docs.first.data();
+          _foundParcelId = match!.id;
+          _foundParcelData = match.data() as Map<String, dynamic>;
           _isSearching = false;
         });
       } else {
@@ -250,7 +267,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                       icon: Icons.price_check,
                       label: "View Rates",
                       color: Colors.green,
-                      onTap: () => _showPriceListDialog(context), // OPEN PRICE LIST
+                      onTap: () => _showPriceListDialog(context),
                     ),
                   ),
                 ],
@@ -316,7 +333,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 _detailRow("Weight", "$weight kg"),
                 const SizedBox(height: 10),
                 
-                // DISPLAY FEE
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

@@ -4,13 +4,38 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'staff_register_parcel.dart';
 import 'staff_verify_pickup.dart';
 import 'staff_approve_payment.dart';
-import 'staff_parcel_details.dart'; // Import the new details page
 import '../screens/auth_screen.dart';
 
-class StaffDashboard extends StatelessWidget {
+class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
 
-  // Helper to re-calculate fee if editing (kept for edit dialog logic)
+  @override
+  State<StaffDashboard> createState() => _StaffDashboardState();
+}
+
+class _StaffDashboardState extends State<StaffDashboard> {
+  // --- Search Controller ---
+  final TextEditingController _searchController = TextEditingController();
+  String _searchText = "";
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to changes to update the UI in real-time
+    _searchController.addListener(() {
+      setState(() {
+        _searchText = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Helper to calculate fee
   double calculateParcelFee(double weightInKg) {
     if (weightInKg <= 2.0) return 0.50;
     if (weightInKg <= 3.0) return 1.00;
@@ -40,7 +65,23 @@ class StaffDashboard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Welcome, Staff Member!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const Text("Manage incoming parcels and verify collections", style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+
+            // --- SEARCH BAR ---
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: "Search Tracking Number...",
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchText.isNotEmpty 
+                  ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+                  : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // --- Action Buttons ---
@@ -58,102 +99,62 @@ class StaffDashboard extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // --- Statistics Cards ---
-            Row(
-              children: [
-                Expanded(child: _StatCard(title: "Today's Arrivals", count: "12", icon: Icons.inventory_2, color: Colors.blue)),
-                const SizedBox(width: 16),
-                Expanded(child: _StatCard(title: "Pending Collection", count: "5", icon: Icons.access_time, color: Colors.orange)),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
             const Text("Recent Parcels", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
             
-            // --- Recent List Stream ---
+            // --- Parcel List ---
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('parcels').orderBy('arrival_date', descending: true).limit(10).snapshots(),
+              // Fetch more items so search has a better chance of finding older items
+              stream: FirebaseFirestore.instance.collection('parcels').orderBy('arrival_date', descending: true).limit(50).snapshots(),
               builder: (context, snapshot) {
                  if(!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                  
-                 return Column(
-                   children: snapshot.data!.docs.map((doc) {
-                     var data = doc.data() as Map<String, dynamic>;
-                     
-                     // Helper for status color
-                     Color statusColor = Colors.grey;
-                     String status = data['status'] ?? 'Unknown';
-                     if(status == 'Ready for Pickup') statusColor = Colors.green;
-                     if(status == 'Awaiting Payment') statusColor = Colors.orange;
+                 // --- CLIENT SIDE FILTERING ---
+                 // This makes it case-insensitive
+                 var docs = snapshot.data!.docs.where((doc) {
+                   var data = doc.data() as Map<String, dynamic>;
+                   String tracking = (data['tracking_number'] ?? '').toString().toLowerCase();
+                   
+                   return tracking.contains(_searchText); 
+                 }).toList();
 
+                 if (docs.isEmpty) {
+                   return const Center(child: Padding(
+                     padding: EdgeInsets.all(20.0),
+                     child: Text("No parcels found matching your search.", style: TextStyle(color: Colors.grey)),
+                   ));
+                 }
+
+                 return Column(
+                   children: docs.map((doc) {
+                     var data = doc.data() as Map<String, dynamic>;
                      return Card(
                        margin: const EdgeInsets.only(bottom: 8),
                        elevation: 2,
-                       child: InkWell(
-                         // --- MODIFIED: Navigate to Details Page on Click ---
-                         onTap: () {
-                           Navigator.push(context, MaterialPageRoute(
-                             builder: (_) => StaffParcelDetailsPage(docId: doc.id, data: data)
-                           ));
-                         },
-                         child: Padding(
-                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                           child: Row(
-                             children: [
-                               // Left: Icon + Status Color
-                               Container(
-                                 width: 4, 
-                                 height: 40, 
-                                 decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(2)),
-                               ),
-                               const SizedBox(width: 16),
-                               
-                               // Middle: Simplified Info (Tracking & Status Only)
-                               Expanded(
-                                 child: Column(
-                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                   children: [
-                                     Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                     const SizedBox(height: 4),
-                                     Text(status, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                                   ],
-                                 ),
-                               ),
-
-                               // Right: Edit & Delete Actions
-                               Row(
-                                 mainAxisSize: MainAxisSize.min,
-                                 children: [
-                                   IconButton(
-                                     icon: const Icon(Icons.edit, color: Colors.blue),
-                                     onPressed: () => _showEditParcelDialog(context, doc.id, data),
-                                   ),
-                                   IconButton(
-                                     icon: const Icon(Icons.delete, color: Colors.red),
-                                     onPressed: () {
-                                       showDialog(
-                                         context: context,
-                                         builder: (ctx) => AlertDialog(
-                                           title: const Text("Delete Parcel"),
-                                           content: const Text("Are you sure you want to remove this record?"),
-                                           actions: [
-                                             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-                                             TextButton(
-                                               onPressed: () async {
-                                                 Navigator.pop(ctx);
-                                                 await FirebaseFirestore.instance.collection('parcels').doc(doc.id).delete();
-                                               }, 
-                                               child: const Text("Delete", style: TextStyle(color: Colors.red))
-                                             ),
-                                           ],
-                                         ),
-                                       );
-                                     },
-                                   ),
-                                 ],
-                               ),
-                             ],
-                           ),
+                       child: ListTile(
+                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                         title: Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                         subtitle: Column(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                             Text("Shelf: ${data['shelf_location']}"),
+                             Text("Weight: ${data['weight']?.toString() ?? '0.0'} kg  •  Fee: RM ${(data['fee'] ?? 0).toStringAsFixed(2)}"),
+                           ],
+                         ),
+                         trailing: Row(
+                           mainAxisSize: MainAxisSize.min,
+                           children: [
+                             IconButton(
+                               icon: const Icon(Icons.edit, color: Colors.blue),
+                               onPressed: () => _showEditParcelDialog(context, doc.id, data),
+                             ),
+                             IconButton(
+                               icon: const Icon(Icons.delete, color: Colors.red),
+                               onPressed: () {
+                                 _confirmDelete(context, doc.id);
+                               },
+                             ),
+                           ],
                          ),
                        ),
                      );
@@ -167,7 +168,26 @@ class StaffDashboard extends StatelessWidget {
     );
   }
 
-  // --- EDIT DIALOG ---
+  void _confirmDelete(BuildContext context, String docId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Parcel"),
+        content: const Text("Are you sure you want to remove this record?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirebaseFirestore.instance.collection('parcels').doc(docId).delete();
+            }, 
+            child: const Text("Delete", style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditParcelDialog(BuildContext context, String docId, Map<String, dynamic> data) {
     final trackingCtrl = TextEditingController(text: data['tracking_number']);
     final shelfCtrl = TextEditingController(text: data['shelf_location']);
@@ -197,11 +217,11 @@ class StaffDashboard extends StatelessWidget {
             onPressed: () async {
               double? newWeight = double.tryParse(weightCtrl.text);
               if (newWeight == null || newWeight <= 0) {
-                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid Weight"), backgroundColor: Colors.red));
-                 return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid Weight"), backgroundColor: Colors.red));
+                return;
               }
 
-              double newFee = calculateParcelFee(newWeight); 
+              double newFee = calculateParcelFee(newWeight);
 
               await FirebaseFirestore.instance.collection('parcels').doc(docId).update({
                 'tracking_number': trackingCtrl.text.trim(),
@@ -219,7 +239,6 @@ class StaffDashboard extends StatelessWidget {
   }
 }
 
-// --- Helper Widgets ---
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -235,7 +254,7 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF6200EA),
+          color: color,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -245,34 +264,6 @@ class _ActionButton extends StatelessWidget {
             Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String count;
-  final IconData icon;
-  final Color color;
-
-  const _StatCard({required this.title, required this.count, required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(count, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            Icon(icon, color: color),
-          ]),
-          const SizedBox(height: 8),
-          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
       ),
     );
   }
