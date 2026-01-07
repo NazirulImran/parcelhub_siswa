@@ -20,6 +20,15 @@ class _StaffDashboardState extends State<StaffDashboard> {
   final TextEditingController _searchController = TextEditingController();
   String _searchText = "";
 
+  String _selectedStatusFilter = 'All';
+  final List<String> _statusOptions = [
+    'All',
+    'Pending',
+    'Payment Pending', 
+    'Ready for Pickup', 
+    'Collected'
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +102,37 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
+
+            const SizedBox(height: 12),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedStatusFilter,
+                  isExpanded: true,
+                  icon: const Icon(Icons.filter_list, color: Color(0xFF6200EA)),
+                  items: _statusOptions.map((String status) {
+                    return DropdownMenuItem<String>(
+                      value: status,
+                      child: Text(status, style: const TextStyle(fontWeight: FontWeight.w500)),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedStatusFilter = newValue;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+
             const SizedBox(height: 24),
 
             // --- Action Buttons ---
@@ -119,18 +159,26 @@ class _StaffDashboardState extends State<StaffDashboard> {
               builder: (context, snapshot) {
                  if(!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                  
-                 // --- CLIENT SIDE FILTERING ---
+                 // --- UPDATED CLIENT SIDE FILTERING ---
                  var docs = snapshot.data!.docs.where((doc) {
                    var data = doc.data() as Map<String, dynamic>;
-                   String tracking = (data['tracking_number'] ?? '').toString().toLowerCase();
                    
-                   return tracking.contains(_searchText); 
+                   // 1. Check Search Text
+                   String tracking = (data['tracking_number'] ?? '').toString().toLowerCase();
+                   bool matchesSearch = tracking.contains(_searchText);
+
+                   // 2. Check Status Filter
+                   String status = data['status'] ?? 'Pending';
+                   bool matchesStatus = _selectedStatusFilter == 'All' || status == _selectedStatusFilter;
+                   
+                   // Return true only if BOTH match
+                   return matchesSearch && matchesStatus; 
                  }).toList();
 
                  if (docs.isEmpty) {
                    return const Center(child: Padding(
                      padding: EdgeInsets.all(20.0),
-                     child: Text("No parcels found matching your search.", style: TextStyle(color: Colors.grey)),
+                     child: Text("No parcels found matching your criteria.", style: TextStyle(color: Colors.grey)),
                    ));
                  }
 
