@@ -7,6 +7,7 @@ import 'staff_approve_payment.dart';
 import '../screens/auth_screen.dart';
 import 'staff_parcel_details.dart';
 import '../screens/profile_screen.dart'; // Import the shared ProfileScreen
+import 'package:intl/intl.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -28,6 +29,15 @@ class _StaffDashboardState extends State<StaffDashboard> {
     'Ready for Pickup', 
     'Collected'
   ];
+
+  String _formatDate(dynamic value) {
+  if (value == null) return '-';
+  if (value is Timestamp) {
+    return DateFormat('dd/MM/yyyy').format(value.toDate());
+  }
+  return value.toString();
+}
+
 
   @override
   void initState() {
@@ -209,20 +219,34 @@ class _StaffDashboardState extends State<StaffDashboard> {
                             ),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.circle,
-                                    size: 10,
-                                    color: data['status'] == 'Collected' ? Colors.green : Colors.orange,
+                                  // 1. Status Row
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.circle,
+                                        size: 10,
+                                        color: data['status'] == 'Collected' ? Colors.green : Colors.orange,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        data['status'] ?? 'Pending',
+                                        style: TextStyle(
+                                          color: data['status'] == 'Collected' ? Colors.green : Colors.orange,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
+                                  
+                                  const SizedBox(height: 4), // Spacing
+                                  
+                                  // 2. USE YOUR FUNCTION HERE
                                   Text(
-                                    data['status'] ?? 'Pending',
-                                    style: TextStyle(
-                                      color: data['status'] == 'Collected' ? Colors.green : Colors.orange,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    "Arrived: ${_formatDate(data['arrival_date'])}", 
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
                                 ],
                               ),

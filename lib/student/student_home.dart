@@ -200,6 +200,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () {
+              FirebaseAuth.instance.signOut();
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+            },
           )
         ],
       ),
