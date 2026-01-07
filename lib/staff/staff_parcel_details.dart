@@ -102,9 +102,9 @@ class StaffParcelDetailsPage extends StatelessWidget {
                     _divider(),
                     _detailRow(Icons.attach_money, "Fee", "RM ${fee.toStringAsFixed(2)}"),
                     _divider(),
-                    _detailRow("Arrival Date", formatTimestamp(data['arrival_date'])),
-                    _divider(),
-                    _detailRow("Collected Date", formatTimestamp(data['collected_at'])),
+                    _buildDetailRow("Arrival Date", formatTimestamp(data['arrival_date'])), // Use _buildDetailRow
+                    const Divider(), // Use the standard Flutter widget
+                    _buildDetailRow("Collected Date", formatTimestamp(data['collected_at'])),
                      _divider(),
                     _detailRow(Icons.note, "Remark", remark),
                   ],
@@ -141,4 +141,17 @@ class StaffParcelDetailsPage extends StatelessWidget {
   Widget _divider() {
     return Divider(color: Colors.grey.shade200, height: 1);
   }
+}
+
+Widget _buildDetailRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8.0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    ),
+  );
 }

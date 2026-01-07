@@ -11,9 +11,14 @@ class StudentHistoryScreen extends StatelessWidget {
   // --- Helper to safely format date ---
   String _formatDate(dynamic value) {
     if (value == null) return 'N/A';
-    if (value is Timestamp) {
-      // Convert Firestore Timestamp to readable String
-      return DateFormat('yyyy-MM-dd hh:mm a').format(value.toDate());
+    try {
+      if (value is Timestamp) {
+        // Convert Firestore Timestamp to readable String
+        return DateFormat('yyyy-MM-dd hh:mm a').format(value.toDate());
+      }
+    } catch (e) {
+      debugPrint("Error formatting date: $e");
+      return "Date Error";
     }
     return value.toString(); // It's already a String (New format)
   }
