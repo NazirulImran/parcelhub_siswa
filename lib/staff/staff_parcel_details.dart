@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // <--- ADDED IMPORT
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:intl/intl.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart'; 
 
 class StaffParcelDetailsPage extends StatelessWidget {
   final String docId;
@@ -9,13 +8,21 @@ class StaffParcelDetailsPage extends StatelessWidget {
 
   const StaffParcelDetailsPage({super.key, required this.docId, required this.data});
 
-  // --- Helper to safely format date ---
+  // --- UPDATED Helper to safely format date ---
   String _formatDate(dynamic value) {
     if (value == null) return 'Not collected yet';
+    
+    // 1. If it's a Firestore Timestamp (Old Data)
     if (value is Timestamp) {
       return DateFormat('yyyy-MM-dd hh:mm a').format(value.toDate());
     }
-    return value.toString();
+    
+    // 2. If it's already a String (New Data)
+    if (value is String) {
+      return value;
+    }
+
+    return 'Invalid Date';
   }
 
   @override
@@ -25,10 +32,9 @@ class StaffParcelDetailsPage extends StatelessWidget {
     String shelf = data['shelf_location'] ?? 'N/A';
     String status = data['status'] ?? 'Unknown';
     String type = data['parcel_type'] ?? 'Standard';
-    String arrival = _formatDate(data['arrival_date']);
-
+    String arrival = data['arrival_date'] ?? 'N/A';
     
-    // FIXED: Use helper to format collected_at
+    // Use helper to format collected_at (Handles both formats now)
     String collectedAt = _formatDate(data['collected_at']); 
     
     String remark = data['remark'] ?? 'No remarks';
@@ -97,7 +103,7 @@ class StaffParcelDetailsPage extends StatelessWidget {
                     _divider(),
                     _detailRow(Icons.calendar_today, "Arrival Date", arrival),
                     _divider(),
-                    _detailRow(Icons.check_circle_outline, "Collected At", collectedAt), // Uses formatted string
+                    _detailRow(Icons.check_circle_outline, "Collected At", collectedAt), 
                      _divider(),
                     _detailRow(Icons.note, "Remark", remark),
                   ],

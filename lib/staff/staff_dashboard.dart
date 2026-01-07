@@ -6,6 +6,7 @@ import 'staff_verify_pickup.dart';
 import 'staff_approve_payment.dart';
 import '../screens/auth_screen.dart';
 import 'staff_parcel_details.dart';
+import '../screens/profile_screen.dart'; // Import the shared ProfileScreen
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -51,6 +52,15 @@ class _StaffDashboardState extends State<StaffDashboard> {
         title: const Text('Staff Portal', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF6200EA),
         actions: [
+          // --- NEW: Profile Button ---
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            onPressed: () {
+              // Navigate to the reusable ProfileScreen
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+            },
+          ),
+          // ---------------------------
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
@@ -105,13 +115,11 @@ class _StaffDashboardState extends State<StaffDashboard> {
             
             // --- Parcel List ---
             StreamBuilder<QuerySnapshot>(
-              // Fetch more items so search has a better chance of finding older items
               stream: FirebaseFirestore.instance.collection('parcels').orderBy('arrival_date', descending: true).limit(50).snapshots(),
               builder: (context, snapshot) {
                  if(!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                  
                  // --- CLIENT SIDE FILTERING ---
-                 // This makes it case-insensitive
                  var docs = snapshot.data!.docs.where((doc) {
                    var data = doc.data() as Map<String, dynamic>;
                    String tracking = (data['tracking_number'] ?? '').toString().toLowerCase();
@@ -134,8 +142,6 @@ class _StaffDashboardState extends State<StaffDashboard> {
                         elevation: 2,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(8),
-
-                          // 👉 TAP TO VIEW DETAILS
                           onTap: () {
                             Navigator.push(
                               context,
@@ -147,20 +153,12 @@ class _StaffDashboardState extends State<StaffDashboard> {
                               ),
                             );
                           },
-
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-
-                            // --- TRACKING NUMBER ---
                             title: Text(
                               data['tracking_number'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-
-                            // --- STATUS ONLY ---
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Row(
@@ -168,25 +166,19 @@ class _StaffDashboardState extends State<StaffDashboard> {
                                   Icon(
                                     Icons.circle,
                                     size: 10,
-                                    color: data['status'] == 'Collected'
-                                        ? Colors.green
-                                        : Colors.orange,
+                                    color: data['status'] == 'Collected' ? Colors.green : Colors.orange,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     data['status'] ?? 'Pending',
                                     style: TextStyle(
-                                      color: data['status'] == 'Collected'
-                                          ? Colors.green
-                                          : Colors.orange,
+                                      color: data['status'] == 'Collected' ? Colors.green : Colors.orange,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-
-                            // --- EDIT & DELETE ONLY ---
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -207,7 +199,6 @@ class _StaffDashboardState extends State<StaffDashboard> {
                           ),
                         ),
                       );
-
                    }).toList(),
                  );
               }
