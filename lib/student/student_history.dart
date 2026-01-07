@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart'; // <--- ADDED IMPORT
 import 'receipt_screen.dart';
+import '../utils.dart';
 
 class StudentHistoryScreen extends StatelessWidget {
   const StudentHistoryScreen({super.key});
@@ -70,7 +71,7 @@ class StudentHistoryScreen extends StatelessWidget {
                   title: Text(data['tracking_number'], style: const TextStyle(fontWeight: FontWeight.bold)),
                   
                   // FIXED: Shows full time now
-                  subtitle: Text("Collected: $collectedTime"), 
+                  subtitle: Text("Collected: ${formatTimestamp(data['collected_at'])}"), 
                   
                   children: [
                     Padding(

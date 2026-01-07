@@ -8,6 +8,7 @@ import '../screens/auth_screen.dart';
 import 'staff_parcel_details.dart';
 import '../screens/profile_screen.dart'; // Import the shared ProfileScreen
 import 'package:intl/intl.dart';
+import '../utils.dart';
 
 class StaffDashboard extends StatefulWidget {
   const StaffDashboard({super.key});
@@ -29,15 +30,6 @@ class _StaffDashboardState extends State<StaffDashboard> {
     'Ready for Pickup', 
     'Collected'
   ];
-
-  String _formatDate(dynamic value) {
-  if (value == null) return '-';
-  if (value is Timestamp) {
-    return DateFormat('dd/MM/yyyy').format(value.toDate());
-  }
-  return value.toString();
-}
-
 
   @override
   void initState() {
@@ -245,7 +237,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
                                   
                                   // 2. USE YOUR FUNCTION HERE
                                   Text(
-                                    "Arrived: ${_formatDate(data['arrival_date'])}", 
+                                    "Arrived: ${formatTimestamp(data['arrival_date'])}", // Uses the global function
                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
                                 ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart'; 
+import '../utils.dart';
 
 class StaffParcelDetailsPage extends StatelessWidget {
   final String docId;
@@ -101,9 +102,9 @@ class StaffParcelDetailsPage extends StatelessWidget {
                     _divider(),
                     _detailRow(Icons.attach_money, "Fee", "RM ${fee.toStringAsFixed(2)}"),
                     _divider(),
-                    _detailRow(Icons.calendar_today, "Arrival Date", arrival),
+                    _detailRow("Arrival Date", formatTimestamp(data['arrival_date'])),
                     _divider(),
-                    _detailRow(Icons.check_circle_outline, "Collected At", collectedAt), 
+                    _detailRow("Collected Date", formatTimestamp(data['collected_at'])),
                      _divider(),
                     _detailRow(Icons.note, "Remark", remark),
                   ],
