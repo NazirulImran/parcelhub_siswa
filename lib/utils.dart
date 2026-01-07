@@ -10,6 +10,20 @@ String formatTimestamp(dynamic value) {
     return DateFormat('dd MMM yyyy, hh:mm a').format(value.toDate());
   }
   
-  // Case 2: Value is already a String (legacy data?)
+  // Case 2: Value is a Dart DateTime
+  if (value is DateTime) {
+    return DateFormat('dd MMM yyyy, hh:mm a').format(value);
+  }
+  
+  // Case 3: Value is a String
+  if (value is String) {
+    // Attempt to parse ISO 8601 strings (e.g. "2024-01-07 18:22:09.436")
+    DateTime? parsedDate = DateTime.tryParse(value);
+    if (parsedDate != null) {
+      return DateFormat('dd MMM yyyy, hh:mm a').format(parsedDate);
+    }
+    // If parsing fails, it might already be formatted or invalid, so return as is.
+  }
+  
   return value.toString();
 }

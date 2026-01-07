@@ -8,21 +8,6 @@ import '../utils.dart';
 class StudentHistoryScreen extends StatelessWidget {
   const StudentHistoryScreen({super.key});
 
-  // --- Helper to safely format date ---
-  String _formatDate(dynamic value) {
-    if (value == null) return 'N/A';
-    try {
-      if (value is Timestamp) {
-        // Convert Firestore Timestamp to readable String
-        return DateFormat('yyyy-MM-dd hh:mm a').format(value.toDate());
-      }
-    } catch (e) {
-      debugPrint("Error formatting date: $e");
-      return "Date Error";
-    }
-    return value.toString(); // It's already a String (New format)
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -65,9 +50,6 @@ class StudentHistoryScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               var data = myHistory[index].data() as Map<String, dynamic>;
               
-              // Use the helper function here
-              String collectedTime = _formatDate(data['collected_at']); 
-
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.only(bottom: 16),
