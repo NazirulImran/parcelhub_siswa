@@ -18,12 +18,13 @@ class StaffDashboard extends StatefulWidget {
 }
 
 class _StaffDashboardState extends State<StaffDashboard> {
+
   // --- Search Controller ---
   final TextEditingController _searchController = TextEditingController();
-  String _searchText = "";
+  String _searchText = ""; //default search text
 
-  String _selectedStatusFilter = 'All';
-  final List<String> _statusOptions = [
+  String _selectedStatusFilter = 'All'; 
+  final List<String> _statusOptions = [ //array for dropdown list filter in staffDashboard
     'All',
     'Pending',
     'Payment Pending', 
@@ -37,18 +38,19 @@ class _StaffDashboardState extends State<StaffDashboard> {
     // Listen to changes to update the UI in real-time
     _searchController.addListener(() {
       setState(() {
+        //convert the tracking number for search to lower case (standardize)
         _searchText = _searchController.text.trim().toLowerCase();
       });
     });
   }
 
   @override
-  void dispose() {
+  void dispose() { //dispose = clean up function to save resources
     _searchController.dispose();
     super.dispose();
   }
 
-  // Helper to calculate fee
+  // method to calculate fee
   double calculateParcelFee(double weightInKg) {
     if (weightInKg <= 2.0) return 0.50;
     if (weightInKg <= 3.0) return 1.00;
@@ -60,14 +62,14 @@ class _StaffDashboardState extends State<StaffDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Staff Portal', style: TextStyle(color: Colors.white)),
+        title: const Text('Staff Dashboard', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF6200EA),
         actions: [
-          // --- NEW: Profile Button ---
+          // Profile Button 
           IconButton(
             icon: const Icon(Icons.person, color: Colors.white),
             onPressed: () {
-              // Navigate to the reusable ProfileScreen
+              // Navigate to the reusable ProfileScreen (same as used in student dashboard)
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
             },
           ),
@@ -89,7 +91,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
             const Text("Welcome, Staff Member!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
 
-            // --- SEARCH BAR ---
+            // Search Bar
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -137,7 +139,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
             const SizedBox(height: 24),
 
-            // --- Action Buttons ---
+            // Action Buttons 
             Row(
               children: [
                 Expanded(child: _ActionButton(icon: Icons.edit, label: "Register", color: Colors.blue, 
@@ -235,7 +237,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
                                   
                                   const SizedBox(height: 4), // Spacing
                                   
-                                  // 2. USE YOUR FUNCTION HERE
+                                  
                                   Text(
                                     "Arrived: ${formatTimestamp(data['arrival_date'])}", // Uses the global function
                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -273,6 +275,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
     );
   }
 
+  //delete parcel function
   void _confirmDelete(BuildContext context, String docId) {
     showDialog(
       context: context,
@@ -293,6 +296,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
     );
   }
 
+  //edit parcel function
   void _showEditParcelDialog(BuildContext context, String docId, Map<String, dynamic> data) {
     final trackingCtrl = TextEditingController(text: data['tracking_number']);
     final shelfCtrl = TextEditingController(text: data['shelf_location']);

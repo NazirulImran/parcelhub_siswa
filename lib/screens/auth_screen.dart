@@ -13,14 +13,14 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
-  String _role = 'Student'; // Default role
+  String _role = 'Student'; // Default role as student
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _matricController = TextEditingController();
   bool _isLoading = false;
 
-  // 1. Helper: Show Error Toast
+  // Show Error Toast Message
   void _showToast(String message) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -32,7 +32,7 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // 2. Helper: Show Success Popup
+  // Show Success Popup Message 
   void _showSuccessDialog(String message, VoidCallback onOk) {
     showDialog(
       context: context,
@@ -54,7 +54,7 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // --- NEW: FORGOT PASSWORD LOGIC ---
+  //  Forgot Password Button
   void _showForgotPasswordDialog() {
     final resetEmailController = TextEditingController();
     showDialog(
@@ -64,7 +64,7 @@ class _AuthScreenState extends State<AuthScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Enter your email. We will check if you are registered.", style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text("Enter your email. We will check if you are registered.", style: TextStyle(fontSize: 14, color: Colors.grey)), //user input email address to be check in the db
             const SizedBox(height: 16),
             TextField(
               controller: resetEmailController,
@@ -89,24 +89,24 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _handlePasswordResetCheck(String email, BuildContext dialogContext) async {
     if (email.isEmpty) {
-      _showToast("Please enter an email address.");
+      _showToast("Please enter an email address."); //error message if email field is empty
       return;
     }
 
-    // 1. Check if email exists in Database
+    // Check if email exists in Database
     try {
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: email)
-          .limit(1)
+          .limit(1) //unique email for each user
           .get();
 
       if (querySnapshot.docs.isEmpty) {
-        // CASE A: Email NOT found -> Show "Register First" Dialog
+        // If Email NOT found -> Show "_showNotRegisteredDialog" 
         Navigator.pop(dialogContext); // Close reset dialog
         _showNotRegisteredDialog(email);
       } else {
-        // CASE B: Email found -> Send Reset Link
+        // If Email found -> Send Reset Link
         await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
         Navigator.pop(dialogContext); // Close reset dialog
         _showSuccessDialog("A password reset link has been sent to $email. Please check your inbox to update your password.", () {});
@@ -121,17 +121,17 @@ class _AuthScreenState extends State<AuthScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Email Not Registered", style: TextStyle(color: Colors.red)),
+        title: const Text("Email Not Registered", style: TextStyle(color: Colors.red)), //show error message
         content: const Text("We could not find an account with this email. Please register first."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
+            child: const Text("Cancel"), //cancel button
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx); // Close dialog
-              // Redirect to Register Page Logic
+              // Redirect to Register Page Logic if email not found
               setState(() {
                 _isLogin = false; // Switch to Sign Up
                 _emailController.text = email; // Pre-fill the email they typed
@@ -143,7 +143,6 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
   }
-  // ----------------------------------
 
   Future<void> _submitAuthForm() async {
     final email = _emailController.text.trim();
@@ -151,7 +150,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final name = _nameController.text.trim();
     final matric = _matricController.text.trim();
 
-        // Check Required Fields for Registration
+    // Check Required Fields for Registration
     if (!_isLogin) {
       if (name.isEmpty) {
         _showToast("Full Name is required.");
@@ -191,34 +190,36 @@ class _AuthScreenState extends State<AuthScreen> {
     
     try {
       if (_isLogin) {
-        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword( //check email and password in firebase
           email: email,
           password: password,
         );
         
-        if (!mounted) return;
+        if (!mounted) return; //stop screen process if the screen has been closed
 
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
-            .get();
+            .get(); //get user unique id
         
         if (userDoc.exists) {
           String role = userDoc['role'];
           String userName = (userDoc.data() as Map<String, dynamic>).containsKey('name') ? userDoc['name'] : 'User';
 
           if (mounted) {
-            setState(() => _isLoading = false);
-            _showSuccessDialog("Welcome back $userName!", () {
+            setState(() => _isLoading = false); //stop loading spinner 
+            _showSuccessDialog("Welcome back $userName!", () { //show welcome message
               if (role == 'Staff') {
-                Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard()));
+                //go to staffDashboard if the role is staff
+                Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StaffDashboard())); 
               } else {
+                //go to studentHomeScreen if the role is student
                 Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const StudentHomeScreen()));
               }
             });
           }
         }
-      } else {
+      } else { //if register new account
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
           password: password,
@@ -280,7 +281,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     const Icon(Icons.inventory_2_outlined, size: 64, color: Color(0xFF6200EA)),
                     const SizedBox(height: 16),
                     const Text('ParcelHub Siswa', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF6200EA))),
-                    const Text('University Parcel Management System', style: TextStyle(color: Colors.grey)),
+                    const Text('UMT Parcel Management System', style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 24),
                     
                     Row(
@@ -353,7 +354,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       obscureText: true,
                     ),
                     
-                    // --- NEW: FORGOT PASSWORD BUTTON (Only in Login Mode) ---
+                    // Forgot Password Button (Only in Login Mode) ---
                     if (_isLogin)
                       Align(
                         alignment: Alignment.centerRight,

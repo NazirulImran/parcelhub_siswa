@@ -33,7 +33,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     }
   }
 
-  // --- UPDATED SEARCH FUNCTION ---
+  // search parcel function
   Future<void> _searchParcel() async {
     String query = _searchController.text.trim();
     if (query.isEmpty) return;
@@ -47,15 +47,14 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     });
 
     try {
-      // 1. Fetch recent parcels (Limit to last 100 to save reads/bandwidth)
-      // We fetch a batch because Firestore can't do case-insensitive substring search natively.
+      // Fetch recent parcels 
       final snapshot = await FirebaseFirestore.instance
           .collection('parcels')
           .orderBy('arrival_date', descending: true) 
-          .limit(100) 
+          .limit(100) //limit to 100 parcel data retrieve
           .get();
 
-      // 2. Client-side Case-Insensitive Check
+      // Client-side Case-Insensitive Check
       QueryDocumentSnapshot? match;
       try {
         match = snapshot.docs.firstWhere((doc) {
@@ -228,7 +227,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     children: [
                       Text("Hello, ${snapshot.data ?? '...'}", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 4),
-                      const Text("Track your university parcels here.", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      const Text("Track Your Parcels Here.", style: TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
                   );
                 }

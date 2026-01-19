@@ -7,6 +7,7 @@ class PickupQRPage extends StatelessWidget {
   final String arrival;
   final String type;
 
+
   const PickupQRPage({
     super.key, 
     required this.tracking, 
@@ -55,7 +56,7 @@ class PickupQRPage extends StatelessWidget {
                 _infoRow("Arrival Time", arrival),
                 
                 const SizedBox(height: 30),
-                const Text("Please present this to the staff.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                const Text("Please present this to the staff at the counter.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
               ],
             ),
           ),

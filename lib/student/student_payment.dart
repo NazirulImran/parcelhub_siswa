@@ -4,9 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'dart:typed_data'; // Needed for Uint8List
+import 'dart:typed_data'; 
 
-// Remove import 'dart:io'; because it breaks on Web!
 
 class PaymentPage extends StatefulWidget {
   final String docId;
@@ -30,21 +29,21 @@ class _PaymentPageState extends State<PaymentPage> {
       setState(() => _isLoading = true);
       
       try {
-        // 1. Read the file as Bytes (Works on Web & Mobile)
+        // Read and Convert the file as Bytes (Works on Web & Mobile)
         Uint8List fileBytes = await image.readAsBytes();
         
-        // 2. Create Reference
+        // Create Unique Reference (parcel ID + current time)
         String fileName = 'receipts/${widget.docId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
         Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
 
-        // 3. Upload using putData (instead of putFile)
-        // We add metadata so Firebase knows it's an image
+        // Upload using putData (instead of putFile)
+        // We add metadata so Firebase knows it's an image (jpeg file)
         await storageRef.putData(fileBytes, SettableMetadata(contentType: 'image/jpeg'));
 
-        // 4. Get Download URL
+        // Get Download URL
         String downloadUrl = await storageRef.getDownloadURL();
 
-        // 5. Save to Firestore
+        // Save to Firestore
         await FirebaseFirestore.instance.collection('parcels').doc(widget.docId).update({
           'status': 'Pending Verification',
           'payment_method': 'Online',
@@ -66,7 +65,6 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (Keep your build method exactly the same as before) ...
     return Scaffold(
       appBar: AppBar(
         title: const Text("Pay Online", style: TextStyle(color: Colors.white)),

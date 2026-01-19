@@ -103,7 +103,7 @@ class StaffParcelDetailsPage extends StatelessWidget {
                     _detailRow(Icons.attach_money, "Fee", "RM ${fee.toStringAsFixed(2)}"),
                     _divider(),
                     _buildDetailRow("Arrival Date", formatTimestamp(data['arrival_date'])), // Use _buildDetailRow
-                    const Divider(), // Use the standard Flutter widget
+                    const Divider(), 
                     _buildDetailRow("Collected Date", formatTimestamp(data['collected_at'])),
                      _divider(),
                     _detailRow(Icons.note, "Remark", remark),

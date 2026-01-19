@@ -11,19 +11,20 @@ class StaffRegisterParcel extends StatefulWidget {
   State<StaffRegisterParcel> createState() => _StaffRegisterParcelState();
 }
 
-class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
+//use text controller to capture data input by staff
+class _StaffRegisterParcelState extends State<StaffRegisterParcel> { 
   final _trackingController = TextEditingController();
   final _shelfController = TextEditingController();
   final _remarkController = TextEditingController(); 
-  final _weightController = TextEditingController(); // NEW: Weight Controller
+  final _weightController = TextEditingController();
   final _otherTypeController = TextEditingController();
   
-  bool _isManualMode = false;
+  bool _isManualMode = false; //manual mode is not activated at first
   bool _isLoading = false;
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
   String? _selectedType;
-  final List<String> _parcelTypes = [
+  final List<String> _parcelTypes = [ //array of parcel type
     'Box', 'Bulky/Large Item', 'Documents', 'Soft Package', 'Others'
   ];
 
@@ -31,13 +32,13 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
     if (currentUser == null) return "Staff";
     try {
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
-      return userDoc['name'] ?? "Staff member";
+      return userDoc['name'] ?? "Staff member"; //get staff name from the database
     } catch (e) {
       return "Staff member";
     }
   }
 
-  // Helper: Calculate Fee
+  // Calculate Fee
   double calculateParcelFee(double weightInKg) {
     if (weightInKg <= 2.0) return 0.50;
     if (weightInKg <= 3.0) return 1.00;
@@ -57,21 +58,22 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
+              //if isShelf true, scan sheld code. if not, scan tracking label
               child: Text(isShelf ? "Scan Shelf Code" : "Scan Tracking Label", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             Expanded(
               child: MobileScanner(
-                onDetect: (capture) {
+                onDetect: (capture) { //trigger when camera capture code
                   final List<Barcode> barcodes = capture.barcodes;
-                  if (barcodes.isNotEmpty) {
-                    setState(() {
+                  if (barcodes.isNotEmpty) { //make sure data valid
+                    setState(() { //update screen with new data
                       if (isShelf) {
-                        _shelfController.text = barcodes.first.rawValue ?? '';
+                        _shelfController.text = barcodes.first.rawValue ?? ''; //if scan shelf. put into "Shelf Location"
                       } else {
-                        _trackingController.text = barcodes.first.rawValue ?? '';
+                        _trackingController.text = barcodes.first.rawValue ?? ''; //if scan parcel. put into "Tracking Number"
                       }
                     });
-                    Navigator.pop(ctx);
+                    Navigator.pop(ctx); //close camera view
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Scanned: ${barcodes.first.rawValue}"), backgroundColor: Colors.green));
                   }
                 },
@@ -142,7 +144,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
       backgroundColor: const Color(0xFFF5F7FA),
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("Register Incoming", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Register Incoming Parcel", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -199,7 +201,7 @@ class _StaffRegisterParcelState extends State<StaffRegisterParcel> {
                          _buildAnimatedInputField(controller: _shelfController, label: "Shelf Location", icon: Icons.inventory, isManual: _isManualMode, onTapScan: () => _scanBarcode(true)),
                         const SizedBox(height: 16),
 
-                        // NEW: Weight Input
+                        // Weight Input
                         TextFormField(
                           controller: _weightController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),

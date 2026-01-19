@@ -17,7 +17,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   Map<String, dynamic>? _scannedData;
   String? _scannedDocId;
 
-  // Helper: Calculate Fee (needed for display before release)
+  // Calculate Fee (needed for display before release)
   double calculateParcelFee(double weightInKg) {
     if (weightInKg <= 2.0) return 0.50;
     if (weightInKg <= 3.0) return 1.00;
@@ -25,6 +25,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
     return 3.00;
   }
 
+  //detect qr code/barcode
   void _onDetect(BarcodeCapture capture) async {
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isNotEmpty && _isScanning) {
@@ -33,11 +34,16 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
       final String rawCode = barcodes.first.rawValue ?? '';
       String extractedTracking = rawCode;
 
+      //use regular expression to isolate the tracking number only to query in database
+      //regex will ignore extra text and find specific id
       final RegExp trackingRegex = RegExp(r"Tracking:\s*(.*)");
+      //check if scanned text is matches the pattern we find (in trackingRegex)
       final Match? match = trackingRegex.firstMatch(rawCode);
 
+      //if the pattern found, we grab specific tracking id out of full text
+      //group 1 = Tracking: \s*(.*) .. the '.' is group (we ignore the "Tracking" label)
       if (match != null) {
-        extractedTracking = match.group(1)?.trim() ?? extractedTracking;
+        extractedTracking = match.group(1)?.trim() ?? extractedTracking; // if extraction fails. it will call the ori value
       }
 
       _fetchParcelDetails(extractedTracking);
@@ -45,21 +51,21 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
   }
 
   Future<void> _fetchParcelDetails(String trackingNumber) async {
-    setState(() => _isLoading = true);
+    setState(() => _isLoading = true); //show spinning loading circle
     
     try {
       final snapshot = await FirebaseFirestore.instance
-          .collection('parcels')
-          .where('tracking_number', isEqualTo: trackingNumber)
-          .limit(1)
+          .collection('parcels') 
+          .where('tracking_number', isEqualTo: trackingNumber) //find tracking number
+          .limit(1) //tracking number should be unique
           .get();
 
       if (snapshot.docs.isEmpty) {
-        _showError("Parcel not found!");
+        _showError("Parcel not found!"); //if tracking is not found
       } else {
         setState(() {
-          _scannedDocId = snapshot.docs.first.id;
-          _scannedData = snapshot.docs.first.data();
+          _scannedDocId = snapshot.docs.first.id; //saves parcel unique id
+          _scannedData = snapshot.docs.first.data(); //saves parcel data
           _isLoading = false;
         });
       }
@@ -84,14 +90,14 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
   try {
     String formattedDate =
-        DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now());
+        DateFormat('yyyy-MM-dd hh:mm a').format(DateTime.now()); //set collected parcel date format
 
     await FirebaseFirestore.instance
         .collection('parcels')
         .doc(_scannedDocId)
-        .update({
+        .update({ //update the parcel details
       'status': 'Collected',
-      'collected_at': formattedDate,
+      'collected_at': formattedDate, //set collected parcel date 
     });
 
     if (!mounted) return;
@@ -105,7 +111,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
     await Future.delayed(const Duration(seconds: 1));
 
-    Navigator.pop(context); // 👈 BACK TO DASHBOARD
+    Navigator.pop(context); // BACK TO DASHBOARD
   } catch (e) {
     _showError("Failed to update status: $e");
     setState(() => _isLoading = false);
@@ -129,7 +135,7 @@ class _StaffVerifyPickupState extends State<StaffVerifyPickup> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Scan for Release", style: TextStyle(color: Colors.white)),
+        title: const Text("Scan to Release Parcel", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF6200EA),
         iconTheme: const IconThemeData(color: Colors.white),
       ),

@@ -8,12 +8,12 @@ class ReceiptScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Format Date nicely
+    // default date 
     String formattedDate = "Unknown Date";
     if (data['collected_at'] != null) {
       try {
         DateTime date = DateTime.parse(data['collected_at']);
-        formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(date);
+        formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(date); //set collected at date format
       } catch (e) {
         formattedDate = data['collected_at'].toString();
       }
@@ -31,7 +31,7 @@ class ReceiptScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // --- RECEIPT CARD ---
+            // Receipt 
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -99,9 +99,9 @@ class ReceiptScreen extends StatelessWidget {
 
                   // Footer
                   const Text("ParcelHub Siswa", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Text("Managed by University Logistics", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const Text("Managed by Universiti Malaysia Terengganu", style: TextStyle(color: Colors.grey, fontSize: 12)),
                   const SizedBox(height: 4),
-                  const Text("Thank you!", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                  const Text("Thank you for Your Support!", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
                 ],
               ),
             ),

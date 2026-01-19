@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class StaffApprovePayment extends StatelessWidget {
   const StaffApprovePayment({super.key});
 
-  void _approvePayment(BuildContext context, String docId) {
+  void _approvePayment(BuildContext context, String docId) { //if payment approved
     // 1. Update Status to 'Ready for Pickup'
     // 2. Ensure Payment Method is marked as Online
     FirebaseFirestore.instance.collection('parcels').doc(docId).update({
@@ -15,7 +15,7 @@ class StaffApprovePayment extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Verified! Student can now see the Pickup QR.")));
   }
 
-  void _rejectPayment(BuildContext context, String docId) {
+  void _rejectPayment(BuildContext context, String docId) { //if payment rejected
     FirebaseFirestore.instance.collection('parcels').doc(docId).update({
       'status': 'Awaiting Payment', // Revert status so student can upload again
       'payment_status': 'Rejected',
